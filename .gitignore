@@ -1,0 +1,25 @@
+__pycache__/
+*.pyc
+*.pyo
+
+# Models (다운로드 안내는 README 참조)
+models/
+
+# AnimatedDrawings + 사용자 데이터
+assets/captures/
+assets/motions/library/*.bvh
+experiments/results/
+experiments/results_whole/
+logs/
+
+# 미디어 테스트 파일
+*.mp4
+*.gif
+
+# Windows 메타
+*:Zone.Identifier
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
