@@ -2,7 +2,7 @@
 
 > 아이가 그린 그림을 웹캠으로 인식해, 사용자의 동작을 따라 춤추는 **2.5D 증강현실 스티커** 로 만들어 카메라 위에 합성하는 PC Python PoC.
 
-![Uploading ezgif-854aba45e98f43ca.gif…]()
+<img width="800" height="450" alt="1" src="https://github.com/user-attachments/assets/09a227f3-2fbd-4da0-a28c-5c0cd65b710d" />
 
 ---
 
