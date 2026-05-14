@@ -6,6 +6,7 @@ import ai.onnxruntime.OrtSession
 import android.content.Context
 import android.graphics.Bitmap
 import android.util.Log
+import java.io.File
 
 class MaskRcnnDetector(private val context: Context) {
 
@@ -13,14 +14,31 @@ class MaskRcnnDetector(private val context: Context) {
     private val session: OrtSession
 
     init {
+        val modelPath = ensureModelOnDisk()
         val opts = OrtSession.SessionOptions()
-        // try NNAPI first; on failure, OrtSession.run still works on CPU
         runCatching { opts.addNnapi() }
             .onFailure { Log.w(TAG, "NNAPI not available, using CPU", it) }
-        val bytes = context.assets.open("models/drawn_humanoid_detector.onnx")
-            .use { it.readBytes() }
-        session = env.createSession(bytes, opts)
-        Log.i(TAG, "loaded ONNX, inputs=${session.inputNames}, outputs=${session.outputNames}")
+        session = env.createSession(modelPath, opts)
+        Log.i(TAG, "loaded ONNX from $modelPath, inputs=${session.inputNames}, outputs=${session.outputNames}")
+    }
+
+    /**
+     * Copies the bundled ONNX model from APK assets to filesDir on first run.
+     * Loading the model by file path lets ONNX Runtime mmap it,
+     * avoiding allocating the whole 168MB as a byte[] on the heap.
+     */
+    private fun ensureModelOnDisk(): String {
+        val target = File(context.filesDir, "models/$MODEL_NAME")
+        if (target.isFile && target.length() > 0) {
+            Log.i(TAG, "model already cached at ${target.absolutePath} (${target.length()} bytes)")
+            return target.absolutePath
+        }
+        target.parentFile?.mkdirs()
+        context.assets.open("models/$MODEL_NAME").use { input ->
+            target.outputStream().use { output -> input.copyTo(output, bufferSize = 1024 * 1024) }
+        }
+        Log.i(TAG, "copied model to ${target.absolutePath} (${target.length()} bytes)")
+        return target.absolutePath
     }
 
     fun detect(image: Bitmap, scoreThreshold: Float = 0.5f): List<Detection> {
@@ -30,7 +48,6 @@ class MaskRcnnDetector(private val context: Context) {
         val inputName = session.inputNames.first()
         val outputs = session.run(mapOf(inputName to tensor))
         try {
-            // MMDeploy instance-seg outputs: dets[1,N,5], labels[1,N], masks[1,N,28,28]
             val detsRaw = outputs[0].value
             val masksRaw = if (outputs.size() >= 3) outputs[2].value else null
 
@@ -45,11 +62,9 @@ class MaskRcnnDetector(private val context: Context) {
         }
     }
 
-    /** ONNX value object for dets [1, N, 5] (float). */
     @Suppress("UNCHECKED_CAST")
     private fun flattenDets(raw: Any?): FloatArray {
         if (raw == null) return FloatArray(0)
-        // Expected shape: Array<Array<FloatArray>>, outer dim = batch = 1
         val batch = raw as Array<Array<FloatArray>>
         if (batch.isEmpty()) return FloatArray(0)
         val rows = batch[0]
@@ -60,7 +75,6 @@ class MaskRcnnDetector(private val context: Context) {
         return flat
     }
 
-    /** ONNX value object for masks [1, N, h, w] (float). Returns (flat, h, w). */
     @Suppress("UNCHECKED_CAST")
     private fun flattenMasks(raw: Any?, nDets: Int): Triple<FloatArray, Int, Int> {
         if (raw == null || nDets == 0) return Triple(FloatArray(0), 0, 0)
@@ -85,5 +99,6 @@ class MaskRcnnDetector(private val context: Context) {
 
     companion object {
         private const val TAG = "MaskRcnnDetector"
+        private const val MODEL_NAME = "drawn_humanoid_detector.onnx"
     }
 }
