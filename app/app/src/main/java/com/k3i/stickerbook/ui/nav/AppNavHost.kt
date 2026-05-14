@@ -49,7 +49,12 @@ fun AppNavHost() {
                         nav.navigate("detail/${next.id}") { popUpTo("list") }
                     }
                 },
-                onSave = { /* Task 13 wires AnimationSaver here */ },
+                onSave = {
+                    val saver = com.k3i.stickerbook.data.AnimationSaver(ctx)
+                    val uri = saver.saveGif(entry)
+                    val msg = if (uri != null) "갤러리에 저장됨" else "저장 실패"
+                    android.widget.Toast.makeText(ctx, msg, android.widget.Toast.LENGTH_SHORT).show()
+                },
             )
         }
     }
