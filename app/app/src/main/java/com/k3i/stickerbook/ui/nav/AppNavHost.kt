@@ -25,7 +25,7 @@ import com.k3i.stickerbook.data.CaptureSession
 import com.k3i.stickerbook.data.LocalCaptureSession
 import com.k3i.stickerbook.data.Manifest
 import com.k3i.stickerbook.data.StickerEntry
-import com.k3i.stickerbook.rig.DetectionOnlyRigger
+import com.k3i.stickerbook.rig.PoseDetectionRigger
 import com.k3i.stickerbook.rig.StubRigger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -40,7 +40,7 @@ import com.k3i.stickerbook.ui.StickerListScreen
 fun AppNavHost() {
     val ctx = LocalContext.current
     val session = remember { CaptureSession() }
-    val rigger = remember { DetectionOnlyRigger.real(ctx) }
+    val rigger = remember { PoseDetectionRigger.real(ctx) }
 
     var manifestVersion by remember { mutableStateOf(0) }
     val manifest by produceState<Manifest?>(initialValue = null, manifestVersion) {
@@ -149,6 +149,7 @@ fun AppNavHost() {
                         gifPath = result.gifPath,
                         texturePath = result.texturePath,
                         sourcePath = result.sourcePath,
+                        skeletonPath = result.skeletonPath,
                     )
                     AssetRepository(ctx).saveSticker(entry)
                     session.reset()
