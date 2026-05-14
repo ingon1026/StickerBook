@@ -9,4 +9,5 @@ data class RigResult(
     val texturePath: String,
     val gifPath: String,
     val sourcePath: String,
+    val skeletonPath: String? = null,
 )
