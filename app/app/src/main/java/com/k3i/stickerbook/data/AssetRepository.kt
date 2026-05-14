@@ -26,6 +26,26 @@ class AssetRepository(private val context: Context) {
         }
     }
 
+    fun saveSticker(entry: StickerEntry) {
+        val manifestFile = File(context.filesDir, "stickerbook_assets/manifest.json")
+        manifestFile.parentFile?.mkdirs()
+
+        val existing = loadManifest() ?: Manifest(
+            formatVersion = SUPPORTED_FORMAT_VERSION,
+            generatedAt = "",
+            stickers = emptyList(),
+        )
+        val merged = existing.copy(
+            stickers = existing.stickers.filter { it.id != entry.id } + entry,
+        )
+
+        val json = kotlinx.serialization.json.Json {
+            prettyPrint = true
+            encodeDefaults = true
+        }
+        manifestFile.writeText(json.encodeToString(Manifest.serializer(), merged))
+    }
+
     /** Resolves a relative path in the manifest to a usable handle. */
     fun resolve(relativePath: String): AssetHandle {
         val internalFile = File(context.filesDir, "stickerbook_assets/$relativePath")
