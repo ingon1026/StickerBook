@@ -5,3 +5,4 @@ local.properties
 .kotlin/
 *.iml
 captures/
+app/app/src/main/assets/stickerbook_assets/
