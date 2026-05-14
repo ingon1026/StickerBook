@@ -27,6 +27,8 @@ import com.k3i.stickerbook.data.Manifest
 import com.k3i.stickerbook.data.StickerEntry
 import com.k3i.stickerbook.rig.DetectionOnlyRigger
 import com.k3i.stickerbook.rig.StubRigger
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import com.k3i.stickerbook.ui.CaptureReviewScreen
 import com.k3i.stickerbook.ui.CaptureScreen
 import com.k3i.stickerbook.ui.MotionPickerScreen
@@ -38,6 +40,7 @@ import com.k3i.stickerbook.ui.StickerListScreen
 fun AppNavHost() {
     val ctx = LocalContext.current
     val session = remember { CaptureSession() }
+    val rigger = remember { DetectionOnlyRigger.real(ctx) }
 
     var manifestVersion by remember { mutableStateOf(0) }
     val manifest by produceState<Manifest?>(initialValue = null, manifestVersion) {
@@ -129,7 +132,9 @@ fun AppNavHost() {
                         nav.popBackStack("list", inclusive = false)
                         return@LaunchedEffect
                     }
-                    val result = DetectionOnlyRigger.real(ctx).rig(image, motion)
+                    val result = withContext(Dispatchers.Default) {
+                        rigger.rig(image, motion)
+                    }
                     val displayName = "stub_${System.currentTimeMillis() % 100000}"
                     val entry = StickerEntry(
                         id = result.framesDir.substringAfter("stickers/").substringBefore("/"),
