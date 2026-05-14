@@ -20,6 +20,7 @@ data class StickerEntry(
     @SerialName("gif_path") val gifPath: String,
     @SerialName("texture_path") val texturePath: String,
     @SerialName("source_path") val sourcePath: String,
+    @SerialName("skeleton_path") val skeletonPath: String? = null,
 )
 
 @Serializable
