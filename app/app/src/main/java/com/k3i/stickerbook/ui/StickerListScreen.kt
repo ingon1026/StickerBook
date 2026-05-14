@@ -5,7 +5,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -22,13 +26,19 @@ import com.k3i.stickerbook.ui.components.StickerCard
 fun StickerListScreen(
     manifest: Manifest,
     onStickerClick: (StickerEntry) -> Unit,
+    onCaptureClick: () -> Unit,
 ) {
     Scaffold(
-        topBar = { TopAppBar(title = { Text("스티커북") }) }
+        topBar = { TopAppBar(title = { Text("스티커북") }) },
+        floatingActionButton = {
+            FloatingActionButton(onClick = onCaptureClick) {
+                Icon(Icons.Default.Add, contentDescription = "새 스티커")
+            }
+        },
     ) { inner ->
         if (manifest.stickers.isEmpty()) {
             Text(
-                "자산이 없습니다.\nADB push 또는 APK assets/stickerbook_assets/ 로 넣어주세요.",
+                "자산이 없습니다.\n+ 버튼으로 새 스티커를 만들어보세요.",
                 modifier = Modifier.fillMaxSize().padding(inner).padding(24.dp),
                 style = MaterialTheme.typography.bodyLarge,
             )
