@@ -135,7 +135,8 @@ fun AppNavHost() {
                     val result = withContext(Dispatchers.Default) {
                         rigger.rig(image, motion)
                     }
-                    val displayName = "stub_${System.currentTimeMillis() % 100000}"
+                    val prefix = result.framesDir.substringAfter("stickers/").substringBefore("_")
+                    val displayName = "${prefix}_${System.currentTimeMillis() % 100000}"
                     val entry = StickerEntry(
                         id = result.framesDir.substringAfter("stickers/").substringBefore("/"),
                         name = displayName,
