@@ -23,66 +23,75 @@
 | top-detection score diff | 0.0002 | < 0.05 | ✅ |
 | mask IoU (full-image, ONNX vs PyTorch) | 0.893 | > 0.7 | ✅ |
 
-## M1.3 — 갤탭 inference (Task 11, 수동 검증 필요)
+## M1.3 — 갤탭 inference (Task 11, 사용자 시연 결과)
 
-| 항목 | 측정값 | 목표 | 비고 |
+| 항목 | 측정값 | 목표 | 통과 |
 |---|---|---|---|
-| 모델 load 성공 | (사용자 시연 후 채움) | crash 없음 | logcat `MaskRcnnDetector: loaded ONNX` 확인 |
-| Cold start inference latency | __s | < 5 | 첫 SPACE → 결과 표시까지 |
-| Warm latency | __s | < 2 | 2번째 이후 |
-| 메모리 peak | __MB | < 500 | Android Studio Profiler |
-| NNAPI 활성화 | (예/아니오) | — | logcat 의 NNAPI 메시지 확인 |
-| APK 크기 | 299 MB | ⚠️ 목표 250MB 초과 — quantization follow-up |
+| 모델 load | ✅ ~1초 (cached file mmap) | crash 없음 | ✅ |
+| Inference latency (CPU only, 2 threads) | ~1-2분 | < 5s | ❌ — quantization 필요 |
+| NNAPI 활성화 | ❌ 폐기 (Mask R-CNN 의 RoI Align op 갤탭 NNAPI 호환 X — native SIGSEGV) | — | — |
+| APK 크기 | 299 MB | < 250 MB | ❌ — quantization follow-up |
+| `largeHeap="true"` 필요 | ✅ 추가됨 | — | — |
 
-## M1.4 — 통합 결과 (Task 11, 수동 검증 필요)
+### 발견한 hot-fix 3개 (plan 후속)
 
-- ☐ 캡처 → DetectionOnlyRigger.real → mask 적용된 캐릭터 sticker 생성
-- ☐ 그리드에 새 카드 `det_<timestamp>` 추가됨
-- ☐ 새 카드 탭 → 상세 화면에 누끼된 캐릭터 (배경 투명) 표시
+1. **OOM at model load** — 168MB `byte[]` heap 할당 실패. fix: file path 로 load (mmap), `assets → filesDir` stream copy, `largeHeap=true` 추가. (commit `3e80fd5`)
+2. **Native SIGSEGV in libonnxruntime.so** — `OrtSession.addNnapi()` 호출 시 NNAPI partition 시도 → Mask R-CNN RoI Align 미지원 → native crash. fix: NNAPI 제거, CPU only, BASIC opt. (commit `b71dd1d`)
+3. **ANR 1분 freeze** — inference 가 UI thread block. fix: `Dispatchers.Default` 로 background + Detector cache (`remember`). (commit `c5cecf7`)
 
-## 자동화 한계 (Task 11 보고)
+## M1.4 — 통합 결과 (Task 11, 사용자 시연 결과)
 
-Subagent 가 `adb input tap` 으로 자동 시연 시도했으나 Samsung Galaxy Tab S9 FE+ 의 bottom-edge gesture overlay (Bixby/Samsung Search/Launcher) 가 화면 하단 버튼 tap 을 가로챔. 따라서 inference 단계 (Processing → 결과 표시) 는 자동 검증 못 함. **사용자가 갤탭에서 직접 만져서 끝까지 따라가야** M1.3/M1.4 확인.
+- ✅ 캡처 → DetectionOnlyRigger.real → mask 적용된 캐릭터 sticker 생성
+- ✅ 그리드에 새 카드 `det_<timestamp>` 추가됨
+- ✅ 새 카드 탭 → 상세 화면에 누끼된 캐릭터 (배경 투명) 표시
+- ⚠️ **Mask 정확도 한계** — 비스듬한 종이 + 돼지 그림 sample 에서 mask 가 하반신만 잡고 머리·상반신 빠짐. mmdet Mask R-CNN 의 28×28 RoI mask + 손그림 도메인 gap. M1.2 의 mask IoU 0.893 (10% 손실) 이 visual 로 명확하게 보임
+- ⚠️ Mask edge 픽셀화 — 28×28 → bbox 크기 nearest upsample. Bitmap.createScaledBitmap 이 bilinear 하지만 28→1000+ scale 차이가 큼
 
-확인 방법:
-1. 앱 → + FAB → 카메라 → 종이 그림 비추기 → 캡처
-2. 다음 ▶ → 모션 선택 → 만들기 ▶
-3. "스티커 만드는 중..." spinner — 시간 측정 (cold start ~?)
-4. 그리드에 새 카드 (det_xxx) 보이면 success
-5. 새 카드 탭 → 상세 화면 → 누끼된 캐릭터 보이면 M1.4 PASS
+### Visual sample
 
-logcat 동시 확인:
-```
-adb logcat -s "MaskRcnnDetector" "AndroidRuntime:E"
-```
-- `loaded ONNX` 로그 = 모델 load OK
-- `ClassCastException` 등 = `flattenDets/flattenMasks` 의 cast 조정 필요
+원본 (`source.png`): 돼지 캐릭터 + 초록 반바지, 종이 약간 비스듬
+결과 (`frames/0001.png`): 반바지 + 다리 + 팔 일부만 (머리 + 상반신 빠짐)
+
+이건 모델 본질적 한계. Sub-2 의 pose estimation 결과가 머리·관절 위치 잡으면 Sub-3 (ARAP) 단계에서 mesh 가 mask 보다 더 정확하게 캐릭터 영역 정의 가능 → 통합 시 자연 해소 기대.
 
 ## 알려진 이슈 / Follow-up
 
-- ⚠️ APK 299MB — quantization (FP16 또는 INT8) 으로 100MB 이하 가능. 별도 task
-- ⚠️ Masks 가 28×28 RoI — 큰 캐릭터에서 mask edge 가 픽셀화 보일 수 있음. 28×28 → bbox 크기 bilinear upsample (Bitmap.createScaledBitmap) 으로 부드럽게. visual quality 측정 필요
-- mmdet 2.x → 3.x config patch 가 export 시 수동 (run_export.py). 향후 retrain 시 mmdet 3.x style config 처음부터 사용 권장
-- ONNX Runtime Mobile 의 array cast 가 첫 inference 에서 검증 안 됨 — 사용자 시연 시 ClassCastException 발생하면 hot-fix 필요
+- ⚠️ **Inference 1-2분 (CPU)** — 가장 큰 follow-up. quantization (FP16/INT8) + input resize 시 5-10초 가능 예상. 별도 sub-task
+- ⚠️ **APK 299MB** — quantization 으로 100MB 이하 가능
+- ⚠️ **Mask 머리 빠짐** — 모델 학습 한계 (사람 도메인 + 손그림 gap). Sub-2/Sub-3 통합 후 자연 해소 가능성. retrain (Annotated Drawings 데이터셋) 도 가능
+- ⚠️ Mask edge 픽셀화 (28×28 → bbox 크기)
+- mmdet 2.x → 3.x config patch 가 export 시 수동 (run_export.py)
+- NNAPI 비활성 — Mask R-CNN 의 RoI Align op 갤탭 NNAPI EP 미지원
+- ONNX Runtime Mobile 의 array cast — 실제 inference 에서 정상 동작 확인됨
 
 ## Sub-2 진입 조건 체크
 
-- ☐ M1.3 PASS (사용자 manual verify)
-- ☐ M1.4 PASS
-- ☐ Inference latency 받아들일 수준
+- ✅ M1.3 — inference 동작 (latency 1-2분, 별도 quantization sub-task)
+- ✅ M1.4 — end-to-end flow OK (mask 정확도는 known limit)
+- ⚠️ Inference latency 받아들일 수준은 아님 — 단기 데모는 가능, production 은 quantization 필요
 - ☐ AlphaPose 모바일 변환 방향 결정 (Sub-2 brainstorm 시점)
 
-## Sub-1 commits
+### Sub-2 진입 시 우선 결정
+
+1. AlphaPose ONNX 변환 시도 vs MediaPipe Pose 활용 vs 사용자 탭 fallback
+2. Sub-1 의 quantization 을 Sub-2 와 함께 묶을지 별도로 갈지
+3. Mask 정확도 보정 (Sub-1 retrain) 을 Sub-2 통합 후 평가
+
+## Sub-1 commits (시간순)
 
 ```text
-706ef5e feat(sub-1): wire DetectionOnlyRigger.real (ONNX inference) in AppNavHost
-f401465 feat(sub-1): DetectionOnlyRigger applies bbox+mask to capture; test factory for DI
-6a55289 feat(sub-1): MaskRcnnDetector ONNX Runtime Mobile wrapper (NNAPI try + CPU fallback)
-45db473 feat(sub-1): MaskPostprocess decodes ONNX (dets, masks) into Detection list
-45843a1 feat(sub-1): ImagePreprocess Bitmap→NCHW BGR mean-subtract (matches AD ONNX export)
-2105059 build(android): add onnxruntime-android 1.17.1 + ignore assets/models/
-18f9737 docs(sub-1): implementation plan — 12 tasks (PC ONNX export + Android integration)
 1fc7f33 docs(sub-1): AD Mask R-CNN ONNX mobile porting design
+18f9737 docs(sub-1): implementation plan — 12 tasks (PC ONNX export + Android integration)
+2105059 build(android): add onnxruntime-android 1.17.1 + ignore assets/models/
+45843a1 feat(sub-1): ImagePreprocess Bitmap→NCHW BGR mean-subtract
+45db473 feat(sub-1): MaskPostprocess decodes ONNX (dets, masks) into Detection list
+6a55289 feat(sub-1): MaskRcnnDetector ONNX Runtime Mobile wrapper
+f401465 feat(sub-1): DetectionOnlyRigger applies bbox+mask to capture
+706ef5e feat(sub-1): wire DetectionOnlyRigger.real (ONNX inference) in AppNavHost
+5468dba docs(sub-1): results template
+3e80fd5 fix(sub-1): OOM on 168MB ONNX load — file path + mmap + largeHeap
+b71dd1d fix(sub-1): drop NNAPI delegate — incompatible with Mask R-CNN ops
+c5cecf7 fix(sub-1): cache Rigger + run inference on Dispatchers.Default (ANR fix)
 ```
 
 ## 유닛 테스트 결과
