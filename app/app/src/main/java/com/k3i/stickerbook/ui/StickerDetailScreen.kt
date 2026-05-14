@@ -3,7 +3,7 @@ package com.k3i.stickerbook.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -49,8 +49,10 @@ fun StickerDetailScreen(
             modifier = Modifier.fillMaxSize().padding(inner).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+            // Player takes the remaining vertical space (weight = 1f), not a fixed
+            // aspect ratio — keeps MotionSelector and Save button on screen in landscape.
             Box(
-                modifier = Modifier.fillMaxWidth().aspectRatio(1f),
+                modifier = Modifier.fillMaxWidth().weight(1f),
                 contentAlignment = Alignment.Center,
             ) {
                 AnimationPlayer(
