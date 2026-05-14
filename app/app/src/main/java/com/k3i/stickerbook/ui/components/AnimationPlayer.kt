@@ -33,11 +33,13 @@ fun AnimationPlayer(
 
     LaunchedEffect(framesDir, frameCount, fps) {
         if (frameCount <= 0) return@LaunchedEffect
+        val tracker = com.k3i.stickerbook.perf.FrameRateTracker()
         var i = 0
         while (true) {
             val name = "%04d.png".format(i + 1)
             val handle = repo.resolve("$framesDir/$name")
             bitmap = decodeFrame(ctx, handle)
+            tracker.mark()
             delay(frameIntervalMs)
             i = (i + 1) % frameCount
         }
