@@ -15,11 +15,16 @@ class MaskRcnnDetector(private val context: Context) {
 
     init {
         val modelPath = ensureModelOnDisk()
-        val opts = OrtSession.SessionOptions()
-        runCatching { opts.addNnapi() }
-            .onFailure { Log.w(TAG, "NNAPI not available, using CPU", it) }
+        val opts = OrtSession.SessionOptions().apply {
+            // CPU-only. NNAPI tried to partition Mask R-CNN (RoI Align etc.) and crashed
+            // in native code on first createSession. Stay on CPU until quantization / NNAPI EP
+            // compatibility is verified for this graph.
+            setIntraOpNumThreads(2)
+            setOptimizationLevel(OrtSession.SessionOptions.OptLevel.BASIC_OPT)
+        }
+        Log.i(TAG, "creating ONNX session from $modelPath ...")
         session = env.createSession(modelPath, opts)
-        Log.i(TAG, "loaded ONNX from $modelPath, inputs=${session.inputNames}, outputs=${session.outputNames}")
+        Log.i(TAG, "loaded ONNX, inputs=${session.inputNames}, outputs=${session.outputNames}")
     }
 
     /**
