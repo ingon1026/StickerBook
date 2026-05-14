@@ -6,3 +6,4 @@ local.properties
 *.iml
 captures/
 app/app/src/main/assets/stickerbook_assets/
+run-gradle.sh
