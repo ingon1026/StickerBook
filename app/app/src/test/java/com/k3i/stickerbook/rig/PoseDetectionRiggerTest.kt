@@ -25,7 +25,7 @@ class PoseDetectionRiggerTest {
         val rigger = PoseDetectionRigger.withStubs(
             ctx,
             detect = { _ -> emptyList() },
-            estimate = { _ -> SkeletonData(dummyLandmarks, 128, 128) },
+            estimate = { _ -> SkeletonData(landmarks = dummyLandmarks, imageWidth = 128, imageHeight = 128) },
         )
         val r = rigger.rig(bitmap, "dance_1")
 
