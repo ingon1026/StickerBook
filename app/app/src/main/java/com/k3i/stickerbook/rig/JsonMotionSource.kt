@@ -3,14 +3,13 @@ package com.k3i.stickerbook.rig
 import android.content.Context
 import android.util.Log
 import kotlinx.serialization.json.Json
-import kotlin.math.sqrt
 
 /**
  * Loads normalized COCO 17 motions from assets/motions/<id>.json and
  * denormalizes them into character-bitmap pixel space using initialPins.
  *
  * Normalization convention (PC convert.py):
- * - motion centroid (all frames, all keypoints) = (0, 0)
+ * - frame 0 hip center = (0, 0)
  * - max abs coord = 1.0 (motion bbox → [-1, 1])
  * - y axis points down (image convention)
  *
@@ -49,15 +48,21 @@ class JsonMotionSource(
     ): List<FloatArray> {
         val hipCx = (initialPins[11 * 2] + initialPins[12 * 2]) / 2f
         val hipCy = (initialPins[11 * 2 + 1] + initialPins[12 * 2 + 1]) / 2f
-        // Sub-4 fix: scale from torso (hip→nose) × 1.5 so motion bbox [-1,1]
-        // maps roughly to character body region (head-top to ankle).
-        val noseX = initialPins[0 * 2]
-        val noseY = initialPins[0 * 2 + 1]
-        val tdx = noseX - hipCx
-        val tdy = noseY - hipCy
-        var scale = sqrt(tdx * tdx + tdy * tdy) * 1.5f
+        // Sub-4 fix #2: scale = character keypoint bbox max dimension × 0.5.
+        // This bounds motion to about half the character body so even motion's
+        // max-abs (1.0) keypoint stays inside the character bitmap.
+        var minX = Float.POSITIVE_INFINITY; var maxX = Float.NEGATIVE_INFINITY
+        var minY = Float.POSITIVE_INFINITY; var maxY = Float.NEGATIVE_INFINITY
+        for (i in 0 until 17) {
+            val x = initialPins[i * 2]; val y = initialPins[i * 2 + 1]
+            if (x < minX) minX = x; if (x > maxX) maxX = x
+            if (y < minY) minY = y; if (y > maxY) maxY = y
+        }
+        val bboxW = maxX - minX
+        val bboxH = maxY - minY
+        var scale = maxOf(bboxW, bboxH) * 0.5f
         if (scale < 1f) {
-            Log.w(TAG, "torso distance < 1px; using 100 fallback")
+            Log.w(TAG, "keypoint bbox max < 1px; using 100 fallback")
             scale = 100f
         }
         return data.frames.map { frame ->
