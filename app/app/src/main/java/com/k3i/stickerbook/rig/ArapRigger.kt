@@ -2,12 +2,14 @@ package com.k3i.stickerbook.rig
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffXfermode
 import android.graphics.RectF
 import android.util.Log
+import com.k3i.stickerbook.gif.AnimatedGifEncoder
 import com.k3i.stickerbook.rig.arap.ArapSolver
 import com.k3i.stickerbook.rig.arap.GridMeshBuilder
 import kotlinx.serialization.json.Json
@@ -81,7 +83,22 @@ class ArapRigger private constructor(
             frameBmp.recycle()
         }
 
-        File(framesDir, "0001.png").copyTo(File(sDir, "animation.gif"), overwrite = true)
+        // Encode 30 PNG frames into an animated GIF (Sub-GIF)
+        val gifFile = File(sDir, "animation.gif")
+        gifFile.outputStream().use { os ->
+            val encoder = AnimatedGifEncoder()
+            encoder.start(os)
+            encoder.setRepeat(0)         // infinite loop
+            encoder.setFrameRate(30f)    // 30 fps
+            for (i in 1..FRAME_COUNT) {
+                val name = i.toString().padStart(4, '0') + ".png"
+                val frame = BitmapFactory.decodeFile(File(framesDir, name).absolutePath)
+                encoder.addFrame(frame)
+                frame.recycle()
+            }
+            encoder.finish()
+        }
+        Log.i(TAG, "encoded animation.gif (${gifFile.length()} bytes)")
         writePng(image, File(sDir, "source.png"))
 
         val skeletonFile = File(sDir, "skeleton.json")
