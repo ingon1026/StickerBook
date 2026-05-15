@@ -38,8 +38,21 @@ class PoseDetectionRigger private constructor(
         } else {
             image
         }
-        val finalFrame = if (skeleton != null && skeleton.landmarks.isNotEmpty()) {
-            SkeletonOverlay.draw(character, skeleton)
+        // Landmarks are in original-image coordinates; shift into character bitmap space
+        // (character is cropped to top.bbox when mask is applied) before drawing the overlay.
+        val skeletonForOverlay = if (skeleton != null && top != null) {
+            val offsetX = top.bbox.left.coerceAtLeast(0f)
+            val offsetY = top.bbox.top.coerceAtLeast(0f)
+            skeleton.copy(
+                landmarks = skeleton.landmarks.map { it.copy(x = it.x - offsetX, y = it.y - offsetY) },
+                imageWidth = character.width,
+                imageHeight = character.height,
+            )
+        } else {
+            skeleton
+        }
+        val finalFrame = if (skeletonForOverlay != null && skeletonForOverlay.landmarks.isNotEmpty()) {
+            SkeletonOverlay.draw(character, skeletonForOverlay)
         } else {
             character
         }
