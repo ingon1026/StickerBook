@@ -143,7 +143,7 @@ class ArapRigger private constructor(
                 context,
                 detect = { detector.detect(it) },
                 estimate = { image, bbox -> estimator.estimate(image, bbox) },
-                motionSource = MotionStub(),
+                motionSource = JsonMotionSource(context),
             )
         }
 
