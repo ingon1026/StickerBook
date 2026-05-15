@@ -4,13 +4,16 @@ import kotlin.math.PI
 import kotlin.math.cos
 
 /**
- * Hardcoded motions for Sub-3 standalone validation.
+ * Hardcoded motions for unit testing.
  *
  * Conventions:
  * - 17 COCO keypoints (indices match Sub-2b AD_COCO_17 backend)
  *   5=l_shoulder, 6=r_shoulder, 7=l_elbow, 8=r_elbow, 9=l_wrist, 10=r_wrist
  *
  * Coordinate space: character-bitmap pixels (y increases downward).
+ *
+ * Note: Production uses JsonMotionSource (Sub-4 BVH catalog).
+ * Stub fallback is identity (no motion); wave is available for unit test validation.
  */
 class MotionStub : MotionSource {
 
@@ -19,10 +22,8 @@ class MotionStub : MotionSource {
         initialPins: FloatArray,
         frameCount: Int,
     ): List<FloatArray> = when (motionId) {
-        // Stub-only: every catalog motion currently maps to wave so we can
-        // visually validate ARAP. Sub-4's BvhMotionSource will replace this.
-        "identity", "static" -> identity(initialPins, frameCount)
-        else -> wave(initialPins, frameCount)
+        "wave" -> wave(initialPins, frameCount)
+        else -> identity(initialPins, frameCount)
     }
 
     private fun identity(pins: FloatArray, n: Int): List<FloatArray> =

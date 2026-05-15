@@ -33,18 +33,16 @@ class MotionStubTest {
     }
 
     @Test
-    fun `unknown motion falls back to wave for stub visual validation`() {
+    fun `unknown motion now returns identity frames`() {
         val stub = MotionStub()
         val pins = fakeInitialPins()
-        val frames = stub.frames("dab", pins, frameCount = 30)
-        // Frame 0 should equal initial pins (wave starts at phase 0)
-        for (i in pins.indices) {
-            assertEquals(pins[i].toDouble(), frames[0][i].toDouble(), 0.001)
+        val frames = stub.frames("dance_1", pins, frameCount = 30)
+        // All frames should match initial pins (identity: no motion)
+        for (f in frames) {
+            for (i in pins.indices) {
+                assertEquals(pins[i].toDouble(), f[i].toDouble(), 0.001)
+            }
         }
-        // Frame 15 should differ at wrists
-        val initialWristY = pins[9 * 2 + 1]
-        val midWristY = frames[15][9 * 2 + 1]
-        assertTrue(kotlin.math.abs(midWristY - initialWristY) > 1f)
     }
 
     @Test

@@ -29,7 +29,7 @@ class MotionPickerScreenTest {
                 MotionPickerScreen(onBack = {}, onConfirm = {})
             }
         }
-        rule.onNodeWithText("댑").assertIsDisplayed()
+        rule.onNodeWithText("댄스 1").assertIsDisplayed()
         rule.onNodeWithText("댄스 1").performClick()
         assertEquals("dance_1", session.motion)
     }
