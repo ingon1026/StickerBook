@@ -38,7 +38,7 @@ class JsonMotionSourceTest {
     }
 
     @Test
-    fun `frame 0 of normalized motion equals initialPins anchor`() {
+    fun `frame 0 of normalized motion equals initialPins`() {
         val normalizedFixed = List(1) {
             List(17) { k ->
                 when (k) {
@@ -60,14 +60,10 @@ class JsonMotionSourceTest {
         val pins = fakeInitialPins()
         val frames = src.frames("synth1", pins, frameCount = 1)
         assertEquals(1, frames.size)
-        // hip center = (75, 400)
-        // bbox x: [0,160]=160, bbox y: [0,400]=400, scale = maxOf(160,400)*0.5 = 200
-        // l_shoulder normalized (0.5, 0) → image (75 + 0.5*200, 400 + 0*200) = (175, 400)
-        assertEquals(175f, frames[0][5*2], 1.0f)
-        assertEquals(400f, frames[0][5*2+1], 0.5f)
-        // face keypoint (kp 0) = initialPins (static)
-        assertEquals(pins[0], frames[0][0], 0.001f)
-        assertEquals(pins[1], frames[0][1], 0.001f)
+        // Frame 0 = initialPins exactly (delta = 0)
+        for (i in pins.indices) {
+            assertEquals(pins[i], frames[0][i], 0.001f)
+        }
     }
 
     @Test
@@ -88,13 +84,14 @@ class JsonMotionSourceTest {
         val target = 5
         val frames = src.frames("synth2", pins, frameCount = target)
         assertEquals(target, frames.size)
-        // hip center = (75, 400), scale = 200
-        // frame 0: l_wrist normalized x = 0 → image x = 75 + 0*200 = 75
-        assertEquals(75f, frames[0][9*2], 1.0f)
-        // frame 4 (last): l_wrist normalized x = 2 → image x = 75 + 2*200 = 475
-        assertEquals(475f, frames[target-1][9*2], 2.0f)
-        // frame 2 mid: t = 2/4 * 2 = 1.0 → source frame 1 (x=1) → image x = 75 + 1*200 = 275
-        assertEquals(275f, frames[2][9*2], 2.0f)
+        // Scale = 200, initialPins[9*2] = 90
+        // Delta from frame 0 (l_wrist x = 0):
+        // frame 0: delta x = 0 → image x = 90 + 0*200 = 90
+        assertEquals(90f, frames[0][9*2], 0.5f)
+        // frame 4 (last): t=2 → source 2 delta x = 2 → image x = 90 + 2*200 = 490
+        assertEquals(490f, frames[target-1][9*2], 0.5f)
+        // frame 2 mid: t=1 → source 1 delta x = 1 → image x = 90 + 1*200 = 290
+        assertEquals(290f, frames[2][9*2], 0.5f)
     }
 
     @Test
@@ -114,7 +111,7 @@ class JsonMotionSourceTest {
         val pins = fakeInitialPins()
         val frames = src.frames("synth3", pins, frameCount = 1)
         assertEquals(1, frames.size)
-        // hip center = (75, 400), scale = 200, l_wrist normalized x = 0 → image x = 75
-        assertEquals(75f, frames[0][9*2], 0.5f)
+        // Scale = 200, initialPins[9*2] = 90, l_wrist normalized x = 0 → delta = 0 → image x = 90
+        assertEquals(90f, frames[0][9*2], 0.5f)
     }
 }

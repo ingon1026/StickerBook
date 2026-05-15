@@ -46,9 +46,12 @@ class JsonMotionSource(
         data: JsonMotionData,
         initialPins: FloatArray,
     ): List<FloatArray> {
-        val hipCx = (initialPins[11 * 2] + initialPins[12 * 2]) / 2f
-        val hipCy = (initialPins[11 * 2 + 1] + initialPins[12 * 2 + 1]) / 2f
-        // Sub-4 fix #2: scale = character keypoint bbox max dimension × 0.5.
+        // Sub-4 fix #3: apply motion as delta from frame 0.
+        // Frame 0: character keypoints = initialPins (no change → mesh unchanged → character stays in V-pose)
+        // Frame n: character keypoint k = initialPins[k] + (motion_frame_n[k] - motion_frame_0[k]) × scale
+        // This preserves the character's captured pose at frame 0 and applies only the motion's per-frame change.
+
+        // Scale = character keypoint bbox max dimension × 0.5.
         // This bounds motion to about half the character body so even motion's
         // max-abs (1.0) keypoint stays inside the character bitmap.
         var minX = Float.POSITIVE_INFINITY; var maxX = Float.NEGATIVE_INFINITY
@@ -65,11 +68,15 @@ class JsonMotionSource(
             Log.w(TAG, "keypoint bbox max < 1px; using 100 fallback")
             scale = 100f
         }
+        // Delta-only application: frame 0 = initialPins, frame n = initialPins + (motion[n] - motion[0]) × scale
+        val frame0 = data.frames[0]
         return data.frames.map { frame ->
             val out = initialPins.copyOf()
             for (k in 5..16) {
-                out[k * 2]     = hipCx + frame[k][0] * scale
-                out[k * 2 + 1] = hipCy + frame[k][1] * scale
+                val dx = (frame[k][0] - frame0[k][0]) * scale
+                val dy = (frame[k][1] - frame0[k][1]) * scale
+                out[k * 2]     = initialPins[k * 2] + dx
+                out[k * 2 + 1] = initialPins[k * 2 + 1] + dy
             }
             out
         }
