@@ -6,6 +6,7 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffXfermode
+import android.graphics.RectF
 import android.util.Log
 import kotlinx.serialization.json.Json
 import java.io.File
@@ -14,14 +15,15 @@ import java.io.FileOutputStream
 class PoseDetectionRigger private constructor(
     private val context: Context,
     private val detect: (Bitmap) -> List<Detection>,
-    private val estimate: (Bitmap) -> SkeletonData,
+    private val estimate: (Bitmap, RectF?) -> SkeletonData,
 ) : CharacterRigger {
 
     override suspend fun rig(image: Bitmap, motion: String): RigResult {
         val detections = detect(image)
         val top = detections.maxByOrNull { it.score }
+        val bbox = top?.bbox
 
-        val skeleton: SkeletonData? = runCatching { estimate(image) }
+        val skeleton: SkeletonData? = runCatching { estimate(image, bbox) }
             .onFailure { Log.w(TAG, "pose estimate failed; continuing without skeleton", it) }
             .getOrNull()
 
@@ -68,7 +70,7 @@ class PoseDetectionRigger private constructor(
         )
     }
 
-    private fun applyMask(image: Bitmap, mask: Bitmap, bbox: android.graphics.RectF): Bitmap {
+    private fun applyMask(image: Bitmap, mask: Bitmap, bbox: RectF): Bitmap {
         val left = bbox.left.toInt().coerceAtLeast(0)
         val top = bbox.top.toInt().coerceAtLeast(0)
         val right = bbox.right.toInt().coerceAtMost(image.width)
@@ -96,20 +98,32 @@ class PoseDetectionRigger private constructor(
     companion object {
         private const val TAG = "PoseDetectionRigger"
 
-        fun real(context: Context): PoseDetectionRigger {
+        fun realAd(context: Context): PoseDetectionRigger {
+            val detector = MaskRcnnDetector(context)
+            val estimator = AdPoseEstimator(context)
+            return PoseDetectionRigger(
+                context,
+                detect = { detector.detect(it) },
+                estimate = { image, bbox -> estimator.estimate(image, bbox) },
+            )
+        }
+
+        fun realMediaPipe(context: Context): PoseDetectionRigger {
             val detector = MaskRcnnDetector(context)
             val estimator = MediaPipePoseEstimator(context)
             return PoseDetectionRigger(
                 context,
                 detect = { detector.detect(it) },
-                estimate = { estimator.estimate(it) },
+                estimate = { image, _ -> estimator.estimate(image, null) },
             )
         }
+
+        fun real(context: Context): PoseDetectionRigger = realMediaPipe(context)
 
         fun withStubs(
             context: Context,
             detect: (Bitmap) -> List<Detection>,
-            estimate: (Bitmap) -> SkeletonData,
+            estimate: (Bitmap, RectF?) -> SkeletonData,
         ): PoseDetectionRigger = PoseDetectionRigger(context, detect, estimate)
     }
 }
