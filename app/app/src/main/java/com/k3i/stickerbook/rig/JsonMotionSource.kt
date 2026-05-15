@@ -10,8 +10,8 @@ import kotlin.math.sqrt
  * denormalizes them into character-bitmap pixel space using initialPins.
  *
  * Normalization convention (PC convert.py):
- * - frame 0 hip center (kp 11 + kp 12)/2 = (0, 0)
- * - frame 0 shoulder distance (kp 5 - kp 6) = 1.0 unit
+ * - motion centroid (all frames, all keypoints) = (0, 0)
+ * - max abs coord = 1.0 (motion bbox → [-1, 1])
  * - y axis points down (image convention)
  *
  * Face keypoints (0-4) are not stored in JSON — kept static at initialPins.
@@ -49,11 +49,15 @@ class JsonMotionSource(
     ): List<FloatArray> {
         val hipCx = (initialPins[11 * 2] + initialPins[12 * 2]) / 2f
         val hipCy = (initialPins[11 * 2 + 1] + initialPins[12 * 2 + 1]) / 2f
-        val dx = initialPins[5 * 2] - initialPins[6 * 2]
-        val dy = initialPins[5 * 2 + 1] - initialPins[6 * 2 + 1]
-        var scale = sqrt(dx * dx + dy * dy)
+        // Sub-4 fix: scale from torso (hip→nose) × 1.5 so motion bbox [-1,1]
+        // maps roughly to character body region (head-top to ankle).
+        val noseX = initialPins[0 * 2]
+        val noseY = initialPins[0 * 2 + 1]
+        val tdx = noseX - hipCx
+        val tdy = noseY - hipCy
+        var scale = sqrt(tdx * tdx + tdy * tdy) * 1.5f
         if (scale < 1f) {
-            Log.w(TAG, "shoulder distance < 1px; using 100 fallback")
+            Log.w(TAG, "torso distance < 1px; using 100 fallback")
             scale = 100f
         }
         return data.frames.map { frame ->
