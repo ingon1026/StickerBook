@@ -19,8 +19,10 @@ class MotionStub : MotionSource {
         initialPins: FloatArray,
         frameCount: Int,
     ): List<FloatArray> = when (motionId) {
-        "wave" -> wave(initialPins, frameCount)
-        else -> identity(initialPins, frameCount)
+        // Stub-only: every catalog motion currently maps to wave so we can
+        // visually validate ARAP. Sub-4's BvhMotionSource will replace this.
+        "identity", "static" -> identity(initialPins, frameCount)
+        else -> wave(initialPins, frameCount)
     }
 
     private fun identity(pins: FloatArray, n: Int): List<FloatArray> =
