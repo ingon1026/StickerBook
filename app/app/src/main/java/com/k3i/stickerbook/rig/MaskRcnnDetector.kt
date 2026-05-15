@@ -34,9 +34,13 @@ class MaskRcnnDetector(private val context: Context) {
      */
     private fun ensureModelOnDisk(): String {
         val target = File(context.filesDir, "models/$MODEL_NAME")
-        if (target.isFile && target.length() > 0) {
+        val assetSize = context.assets.open("models/$MODEL_NAME").use { it.available().toLong() }
+        if (target.isFile && target.length() == assetSize) {
             Log.i(TAG, "model already cached at ${target.absolutePath} (${target.length()} bytes)")
             return target.absolutePath
+        }
+        if (target.isFile) {
+            Log.i(TAG, "model cache size mismatch (${target.length()} vs $assetSize), re-copying")
         }
         target.parentFile?.mkdirs()
         context.assets.open("models/$MODEL_NAME").use { input ->
