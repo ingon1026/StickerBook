@@ -2,7 +2,6 @@ package com.k3i.stickerbook.rig
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.PorterDuff
@@ -56,7 +55,7 @@ class ArapRigger private constructor(
         if (shiftedSkeleton == null || shiftedSkeleton.landmarks.isEmpty() || top == null) {
             writePng(character, File(framesDir, "0001.png"))
             writePng(character, File(sDir, "texture.png"))
-            writePng(character, File(sDir, "animation.gif"))
+            encodeSingleFrameGif(character, File(sDir, "animation.gif"))
             writePng(image, File(sDir, "source.png"))
             return RigResult(
                 framesDir = "$rel/frames",
@@ -74,27 +73,21 @@ class ArapRigger private constructor(
         val solver = ArapSolver(initialPins = initialPins, mesh = mesh)
         val frameSeqs = motionSource.frames(motion, initialPins, FRAME_COUNT)
 
-        for (i in 0 until FRAME_COUNT) {
-            val deformed = solver.solve(frameSeqs[i])
-            val frameBmp = MeshRenderer.draw(character, mesh.gridWidth, mesh.gridHeight, deformed)
-            val name = (i + 1).toString().padStart(4, '0') + ".png"
-            writePng(frameBmp, File(framesDir, name))
-            if (i == 0) writePng(frameBmp, File(sDir, "texture.png"))
-            frameBmp.recycle()
-        }
-
-        // Encode 30 PNG frames into an animated GIF (Sub-GIF)
+        // Single pass: render → PNG (disk) → addFrame (GIF) → recycle. Avoids round-trip decode.
         val gifFile = File(sDir, "animation.gif")
         gifFile.outputStream().use { os ->
             val encoder = AnimatedGifEncoder()
             encoder.start(os)
-            encoder.setRepeat(0)         // infinite loop
-            encoder.setFrameRate(30f)    // 30 fps
-            for (i in 1..FRAME_COUNT) {
-                val name = i.toString().padStart(4, '0') + ".png"
-                val frame = BitmapFactory.decodeFile(File(framesDir, name).absolutePath)
-                encoder.addFrame(frame)
-                frame.recycle()
+            encoder.setRepeat(0)
+            encoder.setFrameRate(30f)
+            for (i in 0 until FRAME_COUNT) {
+                val deformed = solver.solve(frameSeqs[i])
+                val frameBmp = MeshRenderer.draw(character, mesh.gridWidth, mesh.gridHeight, deformed)
+                val name = (i + 1).toString().padStart(4, '0') + ".png"
+                writePng(frameBmp, File(framesDir, name))
+                if (i == 0) writePng(frameBmp, File(sDir, "texture.png"))
+                encoder.addFrame(frameBmp)
+                frameBmp.recycle()
             }
             encoder.finish()
         }
@@ -144,6 +137,17 @@ class ArapRigger private constructor(
     private fun writePng(bmp: Bitmap, target: File) {
         FileOutputStream(target).use { out ->
             bmp.compress(Bitmap.CompressFormat.PNG, 100, out)
+        }
+    }
+
+    private fun encodeSingleFrameGif(bmp: Bitmap, target: File) {
+        target.outputStream().use { os ->
+            val encoder = AnimatedGifEncoder()
+            encoder.start(os)
+            encoder.setRepeat(0)
+            encoder.setFrameRate(30f)
+            encoder.addFrame(bmp)
+            encoder.finish()
         }
     }
 
