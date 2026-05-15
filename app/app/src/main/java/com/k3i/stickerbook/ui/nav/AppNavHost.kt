@@ -40,7 +40,7 @@ import com.k3i.stickerbook.ui.StickerListScreen
 fun AppNavHost() {
     val ctx = LocalContext.current
     val session = remember { CaptureSession() }
-    val rigger = remember { PoseDetectionRigger.real(ctx) }
+    val rigger = remember { PoseDetectionRigger.realAd(ctx) }
 
     var manifestVersion by remember { mutableStateOf(0) }
     val manifest by produceState<Manifest?>(initialValue = null, manifestVersion) {

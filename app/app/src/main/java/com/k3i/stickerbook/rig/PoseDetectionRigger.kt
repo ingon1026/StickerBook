@@ -118,8 +118,6 @@ class PoseDetectionRigger private constructor(
             )
         }
 
-        fun real(context: Context): PoseDetectionRigger = realMediaPipe(context)
-
         fun withStubs(
             context: Context,
             detect: (Bitmap) -> List<Detection>,
