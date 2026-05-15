@@ -25,6 +25,7 @@ import com.k3i.stickerbook.data.CaptureSession
 import com.k3i.stickerbook.data.LocalCaptureSession
 import com.k3i.stickerbook.data.Manifest
 import com.k3i.stickerbook.data.StickerEntry
+import com.k3i.stickerbook.rig.ArapRigger
 import com.k3i.stickerbook.rig.PoseDetectionRigger
 import com.k3i.stickerbook.rig.StubRigger
 import kotlinx.coroutines.Dispatchers
@@ -40,7 +41,7 @@ import com.k3i.stickerbook.ui.StickerListScreen
 fun AppNavHost() {
     val ctx = LocalContext.current
     val session = remember { CaptureSession() }
-    val rigger = remember { PoseDetectionRigger.realAd(ctx) }
+    val rigger = remember { ArapRigger.real(ctx) }
 
     var manifestVersion by remember { mutableStateOf(0) }
     val manifest by produceState<Manifest?>(initialValue = null, manifestVersion) {
