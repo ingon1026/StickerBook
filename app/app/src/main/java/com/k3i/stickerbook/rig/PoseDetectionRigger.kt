@@ -98,7 +98,7 @@ class PoseDetectionRigger private constructor(
 
         fun real(context: Context): PoseDetectionRigger {
             val detector = MaskRcnnDetector(context)
-            val estimator = PoseEstimator(context)
+            val estimator = MediaPipePoseEstimator(context)
             return PoseDetectionRigger(
                 context,
                 detect = { detector.detect(it) },
