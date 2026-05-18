@@ -13,7 +13,7 @@
 - 테스트: JUnit4 / Robolectric (Android), pytest (PC)
 
 **기본 결정 (Open Questions default — 진행 중 사용자가 바꿔도 됨):**
-- 자산 전송: ADB push (개발용) + APK `assets/` 번들 (데모용) 둘 다 지원
+- 자산 전송: 사용자 생성 sticker = on-device 갤탭 의 internal `filesDir` 에 저장 (PNG seq + GIF). APK `assets/stickerbook_assets/` 은 bundled sample (s003~s005) 만
 - 출력 포맷: PNG sequence (Unity 친화, 알파 8-bit) + GIF (호환/미리보기) 둘 다 export. 갤탭 재생은 PNG seq 우선
 - Phase 1.5 카메라 오버레이: MVP 미포함 (별도 후속)
 
@@ -58,7 +58,7 @@ stickerbook_android_porting/app/
     │   └── perf/
     │       └── FrameRateTracker.kt               성능 메트릭
     ├── assets/
-    │   └── stickerbook_assets/                   데모용 (APK 번들)
+    │   └── stickerbook_assets/                   bundled sample 만 (s003~s005). 사용자 생성 sticker 는 files/ (internal)
     │       └── manifest.json (+ stickers/*)
     └── res/values/strings.xml                    한국어 텍스트
 ```
