@@ -2,6 +2,7 @@ package com.k3i.stickerbook.data
 
 import android.content.Context
 import android.util.Log
+import kotlinx.serialization.json.Json
 import java.io.File
 import java.io.IOException
 
@@ -27,23 +28,26 @@ class AssetRepository(private val context: Context) {
     }
 
     fun saveSticker(entry: StickerEntry) {
-        val manifestFile = File(context.filesDir, "stickerbook_assets/manifest.json")
-        manifestFile.parentFile?.mkdirs()
-
         val existing = loadManifest() ?: Manifest(
             formatVersion = SUPPORTED_FORMAT_VERSION,
             generatedAt = "",
             stickers = emptyList(),
         )
-        val merged = existing.copy(
+        writeManifest(existing.copy(
             stickers = existing.stickers.filter { it.id != entry.id } + entry,
-        )
+        ))
+    }
 
-        val json = kotlinx.serialization.json.Json {
-            prettyPrint = true
-            encodeDefaults = true
-        }
-        manifestFile.writeText(json.encodeToString(Manifest.serializer(), merged))
+    fun deleteSticker(id: String) {
+        val existing = loadManifest() ?: return
+        writeManifest(existing.copy(stickers = existing.stickers.filter { it.id != id }))
+        File(context.filesDir, "stickerbook_assets/stickers/$id").deleteRecursively()
+    }
+
+    private fun writeManifest(manifest: Manifest) {
+        val file = File(context.filesDir, "stickerbook_assets/manifest.json")
+        file.parentFile?.mkdirs()
+        file.writeText(WRITE_JSON.encodeToString(Manifest.serializer(), manifest))
     }
 
     /** Resolves a relative path in the manifest to a usable handle. */
@@ -58,6 +62,7 @@ class AssetRepository(private val context: Context) {
 
     companion object {
         private const val TAG = "AssetRepository"
+        private val WRITE_JSON = Json { prettyPrint = true; encodeDefaults = true }
     }
 }
 
