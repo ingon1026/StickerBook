@@ -3,10 +3,13 @@ package com.k3i.stickerbook.rig
 import android.graphics.Bitmap
 import android.graphics.RectF
 import android.util.Log
+import org.opencv.android.OpenCVLoader
 import org.opencv.android.Utils
 import org.opencv.core.Core
 import org.opencv.core.CvType
 import org.opencv.core.Mat
+import org.opencv.core.MatOfPoint
+import org.opencv.core.Scalar
 import org.opencv.core.Size
 import org.opencv.imgproc.Imgproc
 
@@ -14,8 +17,14 @@ object MaskRefiner {
 
     private const val TAG = "MaskRefiner"
     private const val GRAYSCALE_THRESHOLD = 100.0
-    private const val DILATE_KSIZE = 5.0
-    private const val CLOSE_KSIZE = 5.0
+    private const val CLOSE_KSIZE_LARGE = 81.0
+    private const val CLOSE_KSIZE_SMALL = 5.0
+
+    private val nativeReady: Boolean by lazy {
+        OpenCVLoader.initLocal().also {
+            if (!it) Log.e(TAG, "OpenCVLoader.initLocal() failed")
+        }
+    }
 
     fun refine(image: Bitmap, bbox: RectF, mask: Bitmap): Bitmap {
         val left = bbox.left.toInt().coerceAtLeast(0)
@@ -25,62 +34,64 @@ object MaskRefiner {
         val w = (right - left).coerceAtLeast(1)
         val h = (bottom - top).coerceAtLeast(1)
 
-        return try {
-            refineWithOpenCv(image, left, top, w, h, mask)
-        } catch (e: UnsatisfiedLinkError) {
-            Log.w(TAG, "OpenCV native unavailable; returning scaled raw mask", e)
-            Bitmap.createScaledBitmap(mask, w, h, true)
+        if (!nativeReady) {
+            Log.w(TAG, "OpenCV native unavailable; returning scaled raw mask")
+            return Bitmap.createScaledBitmap(mask, w, h, true)
         }
+        return refineWithOpenCv(image, left, top, w, h)
     }
 
-    private fun refineWithOpenCv(image: Bitmap, left: Int, top: Int, w: Int, h: Int, mask: Bitmap): Bitmap {
+    private fun refineWithOpenCv(image: Bitmap, left: Int, top: Int, w: Int, h: Int): Bitmap {
         val roi = Bitmap.createBitmap(image, left, top, w, h)
         val roiMat = Mat()
-        Utils.bitmapToMat(roi, roiMat)
         val gray = Mat()
-        Imgproc.cvtColor(roiMat, gray, Imgproc.COLOR_BGRA2GRAY)
-
         val binMask = Mat()
-        Imgproc.threshold(gray, binMask, GRAYSCALE_THRESHOLD, 255.0, Imgproc.THRESH_BINARY_INV)
-
-        val scaledMaskBmp = Bitmap.createScaledBitmap(mask, w, h, true)
-        val scaledMaskMat = Mat()
-        Utils.bitmapToMat(scaledMaskBmp, scaledMaskMat)
-        val maskChannels = mutableListOf<Mat>()
-        Core.split(scaledMaskMat, maskChannels)
-        val maskAlpha = if (maskChannels.size >= 4) maskChannels[3] else maskChannels[0]
-        val seed = Mat()
-        Imgproc.threshold(maskAlpha, seed, 127.0, 255.0, Imgproc.THRESH_BINARY)
-        val expandedMask = Mat()
-        val dilateKernel = Imgproc.getStructuringElement(
-            Imgproc.MORPH_RECT, Size(DILATE_KSIZE, DILATE_KSIZE),
+        val closedBin = Mat()
+        val closeKernelLarge = Imgproc.getStructuringElement(
+            Imgproc.MORPH_RECT, Size(CLOSE_KSIZE_LARGE, CLOSE_KSIZE_LARGE),
         )
-        Imgproc.dilate(seed, expandedMask, dilateKernel)
-
-        val combinedMask = Mat()
-        Core.bitwise_and(binMask, expandedMask, combinedMask)
-
-        val finalMask = Mat()
-        Core.bitwise_or(seed, combinedMask, finalMask)
+        val contours = mutableListOf<MatOfPoint>()
+        val hierarchy = Mat()
+        val resultMask = Mat.zeros(h, w, CvType.CV_8UC1)
         val closed = Mat()
-        val closeKernel = Imgproc.getStructuringElement(
-            Imgproc.MORPH_RECT, Size(CLOSE_KSIZE, CLOSE_KSIZE),
+        val closeKernelSmall = Imgproc.getStructuringElement(
+            Imgproc.MORPH_RECT, Size(CLOSE_KSIZE_SMALL, CLOSE_KSIZE_SMALL),
         )
-        Imgproc.morphologyEx(finalMask, closed, Imgproc.MORPH_CLOSE, closeKernel)
-
         val outBgra = Mat(h, w, CvType.CV_8UC4)
         val white = Mat(h, w, CvType.CV_8UC1)
-        white.setTo(org.opencv.core.Scalar(255.0))
-        Core.merge(listOf(white, white, white, closed), outBgra)
-        val outBmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
-        Utils.matToBitmap(outBgra, outBmp)
 
-        roiMat.release(); gray.release(); binMask.release()
-        scaledMaskMat.release(); maskChannels.forEach { it.release() }
-        seed.release(); expandedMask.release(); combinedMask.release()
-        finalMask.release(); closed.release(); white.release(); outBgra.release()
+        try {
+            Utils.bitmapToMat(roi, roiMat)
+            Imgproc.cvtColor(roiMat, gray, Imgproc.COLOR_BGRA2GRAY)
+            Imgproc.threshold(gray, binMask, GRAYSCALE_THRESHOLD, 255.0, Imgproc.THRESH_BINARY_INV)
+            Imgproc.morphologyEx(binMask, closedBin, Imgproc.MORPH_CLOSE, closeKernelLarge)
+            Imgproc.findContours(
+                closedBin, contours, hierarchy,
+                Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE,
+            )
 
-        Log.i(TAG, "refined ${w}x${h} mask")
-        return outBmp
+            val largest = contours.maxByOrNull { Imgproc.contourArea(it) }
+            if (largest != null) {
+                Imgproc.drawContours(resultMask, listOf(largest), -1, Scalar(255.0), -1)
+            }
+            Imgproc.morphologyEx(resultMask, closed, Imgproc.MORPH_CLOSE, closeKernelSmall)
+
+            white.setTo(Scalar(255.0))
+            Core.merge(listOf(white, white, white, closed), outBgra)
+            val outBmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+            Utils.matToBitmap(outBgra, outBmp)
+
+            Log.i(
+                TAG,
+                "refined ${w}x${h} mask, ${contours.size} contours, picked area=${largest?.let { Imgproc.contourArea(it) } ?: 0.0}",
+            )
+            return outBmp
+        } finally {
+            roi.recycle()
+            roiMat.release(); gray.release(); binMask.release(); closedBin.release()
+            closeKernelLarge.release(); closeKernelSmall.release()
+            hierarchy.release(); contours.forEach { it.release() }
+            resultMask.release(); closed.release(); white.release(); outBgra.release()
+        }
     }
 }
