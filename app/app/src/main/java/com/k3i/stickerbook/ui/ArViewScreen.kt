@@ -80,7 +80,7 @@ fun ArViewScreen(
     val homographyState = remember { mutableStateOf<DoubleArray?>(null) }
 
     val analyzer = remember {
-        val alpha = 0.3  // EMA factor: higher = faster response, lower = smoother
+        val alpha = 0.1  // EMA factor: higher = faster response, lower = smoother
         ImageAnalysis.Analyzer { imageProxy ->
             try {
                 val mat = yPlaneToGrayMat(imageProxy)
