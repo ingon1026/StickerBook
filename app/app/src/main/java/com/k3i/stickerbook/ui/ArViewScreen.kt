@@ -134,12 +134,14 @@ fun ArViewScreen(
                 val e = entry
                 if (e != null && a != null) {
                     val widthPx = with(density) { 200.dp.toPx() }
+                    val h by homographyState
                     ArStickerOverlay(
                         framesDir = e.framesDir,
                         frameCount = e.frameCount,
                         fps = e.fps,
                         anchor = a,
                         stickerWidthPx = widthPx,
+                        homography = h,
                         modifier = Modifier.fillMaxSize(),
                     )
                 }

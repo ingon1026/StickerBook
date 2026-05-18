@@ -27,7 +27,8 @@ private const val TAG = "ArStickerOverlay"
 /**
  * Camera overlay sticker. Plays frame sequence at fps + draws as a perspective
  * trapezoid anchored at [anchor] (bottom-center of the sticker) with ellipse
- * shadow under it for fake-AR depth feel.
+ * shadow under it for fake-AR depth feel. If [homography] is provided, applies
+ * perspective transform to the 4 vertices and adjusts shadow position accordingly.
  */
 @Composable
 fun ArStickerOverlay(
@@ -36,6 +37,7 @@ fun ArStickerOverlay(
     fps: Int,
     anchor: Offset,
     stickerWidthPx: Float,
+    homography: DoubleArray? = null,
     modifier: Modifier = Modifier,
 ) {
     val ctx = LocalContext.current
@@ -62,33 +64,51 @@ fun ArStickerOverlay(
         val bmp = bitmap ?: return@Canvas
         val aspectH = stickerWidthPx * bmp.height / bmp.width.coerceAtLeast(1)
 
-        // shadow first (below sticker)
-        val shadowH = aspectH * 0.05f
-        val shadow = ArStickerMath.shadowRect(
+        // reference trapezoid vertices
+        val refVerts = ArStickerMath.trapezoidVertices(
             anchorX = anchor.x, anchorY = anchor.y,
-            stickerWidth = stickerWidthPx,
-            shadowWidthRatio = 0.7f,
-            shadowHeight = shadowH,
+            width = stickerWidthPx, height = aspectH,
+            bottomNarrowFactor = 0.85f,
         )
+
+        // apply homography transform if provided
+        val finalVerts = if (homography != null) {
+            com.k3i.stickerbook.ar.HomographyMath.transformVerts(refVerts, homography)
+        } else {
+            refVerts
+        }
+
+        // shadow first (below sticker), positioned at transformed bottom edge
+        val shadowH = aspectH * 0.05f
+        val bottomLx = finalVerts[4]
+        val bottomLy = finalVerts[5]
+        val bottomRx = finalVerts[6]
+        val bottomRy = finalVerts[7]
+        val shadowCx = (bottomLx + bottomRx) / 2f
+        val shadowCy = (bottomLy + bottomRy) / 2f
+        val shadowSpan = kotlin.math.sqrt(
+            ((bottomRx - bottomLx) * (bottomRx - bottomLx) +
+             (bottomRy - bottomLy) * (bottomRy - bottomLy)).toDouble()
+        ).toFloat()
+        val shadowHalfW = shadowSpan * 0.7f / 2f
+        val shadowLeft = shadowCx - shadowHalfW
+        val shadowTop = shadowCy
+        val shadowRight = shadowCx + shadowHalfW
+        val shadowBottom = shadowCy + shadowH
         val shadowPaint = Paint().apply {
             color = Color.argb(80, 0, 0, 0)
             isAntiAlias = true
         }
         drawContext.canvas.nativeCanvas.drawOval(
-            RectF(shadow.left, shadow.top, shadow.right, shadow.bottom),
+            RectF(shadowLeft, shadowTop, shadowRight, shadowBottom),
             shadowPaint,
         )
 
         // trapezoid sticker via drawBitmapMesh (1x1 grid → 4 vertices)
-        val verts = ArStickerMath.trapezoidVertices(
-            anchorX = anchor.x, anchorY = anchor.y,
-            width = stickerWidthPx, height = aspectH,
-            bottomNarrowFactor = 0.85f,
-        )
         drawContext.canvas.nativeCanvas.drawBitmapMesh(
             bmp,
             1, 1,
-            verts, 0,
+            finalVerts, 0,
             null, 0,
             null,
         )
