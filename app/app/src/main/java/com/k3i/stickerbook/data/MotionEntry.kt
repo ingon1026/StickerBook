@@ -6,16 +6,17 @@ data class MotionEntry(
 )
 
 object MotionCatalog {
-    // IDs match Sub-4 converted BVH files in assets/motions/<id>.json.
-    // zombie.bvh skipped (incompatible skeleton structure, missing LeftThigh/RightThigh).
+    // IDs match converted BVH files in assets/motions/<id>.json.
+    // Mixamo-style skeleton (LeftUpLeg 등) BVH 도 convert.py 의 alias 매핑 으로 지원.
     val all: List<MotionEntry> = listOf(
-        MotionEntry(id = "dance_1", displayName = "댄스 1"),
-        MotionEntry(id = "dance_2", displayName = "댄스 2"),
-        MotionEntry(id = "dance_3", displayName = "댄스 3"),
+        MotionEntry(id = "motion_1", displayName = "모션 1"),
+        MotionEntry(id = "motion_2", displayName = "모션 2"),
+        MotionEntry(id = "motion_3", displayName = "모션 3"),
+        MotionEntry(id = "motion_4", displayName = "모션 4"),
         MotionEntry(id = "motion_5", displayName = "모션 5"),
-        MotionEntry(id = "phone_1", displayName = "전화 1"),
-        MotionEntry(id = "phone_2", displayName = "전화 2"),
-        MotionEntry(id = "phone_z1", displayName = "전화 Z1"),
-        MotionEntry(id = "tabtab", displayName = "탭탭"),
+        MotionEntry(id = "dab", displayName = "댑"),
+        MotionEntry(id = "jumping", displayName = "점프"),
+        MotionEntry(id = "wave_hello", displayName = "인사"),
+        MotionEntry(id = "zombie", displayName = "좀비"),
     )
 }
