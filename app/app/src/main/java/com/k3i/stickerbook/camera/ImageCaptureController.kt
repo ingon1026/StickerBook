@@ -26,11 +26,22 @@ class ImageCaptureController {
                     try {
                         val buf = image.planes[0].buffer
                         val bytes = ByteArray(buf.remaining()).also { buf.get(it) }
-                        var bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+
+                        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+                        val maxDim = maxOf(bounds.outWidth, bounds.outHeight)
+                        var sample = 1
+                        while (maxDim / sample > MAX_DIM) sample *= 2
+
+                        val decodeOpts = BitmapFactory.Options().apply { inSampleSize = sample }
+                        var bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, decodeOpts)
+
                         val rot = image.imageInfo.rotationDegrees
                         if (rot != 0) {
                             val m = Matrix().apply { postRotate(rot.toFloat()) }
-                            bmp = Bitmap.createBitmap(bmp, 0, 0, bmp.width, bmp.height, m, true)
+                            val rotated = Bitmap.createBitmap(bmp, 0, 0, bmp.width, bmp.height, m, true)
+                            if (rotated !== bmp) bmp.recycle()
+                            bmp = rotated
                         }
                         cont.resume(bmp)
                     } catch (t: Throwable) {
@@ -45,5 +56,9 @@ class ImageCaptureController {
                 }
             },
         )
+    }
+
+    companion object {
+        private const val MAX_DIM = 2048
     }
 }
