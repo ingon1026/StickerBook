@@ -4,8 +4,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
@@ -32,6 +34,7 @@ fun StickerDetailScreen(
     onPrev: () -> Unit,
     onNext: () -> Unit,
     onSave: () -> Unit,
+    onAR: () -> Unit,
 ) {
     Scaffold(
         topBar = {
@@ -64,6 +67,10 @@ fun StickerDetailScreen(
             MotionSelector(motionLabel = entry.motion, onPrev = onPrev, onNext = onNext)
             Button(onClick = onSave, modifier = Modifier.fillMaxWidth()) {
                 Text("갤러리에 저장")
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Button(onClick = onAR, modifier = Modifier.fillMaxWidth()) {
+                Text("AR 로 보기")
             }
         }
     }

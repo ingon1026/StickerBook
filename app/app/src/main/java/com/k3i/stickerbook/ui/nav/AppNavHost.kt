@@ -30,6 +30,7 @@ import com.k3i.stickerbook.rig.PoseDetectionRigger
 import com.k3i.stickerbook.rig.StubRigger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import com.k3i.stickerbook.ui.ArViewScreen
 import com.k3i.stickerbook.ui.CaptureReviewScreen
 import com.k3i.stickerbook.ui.CaptureScreen
 import com.k3i.stickerbook.ui.MotionPickerScreen
@@ -96,6 +97,7 @@ fun AppNavHost() {
                             ctx, msg, android.widget.Toast.LENGTH_SHORT,
                         ).show()
                     },
+                    onAR = { nav.navigate("arview/${entry.id}") },
                 )
             }
 
@@ -164,6 +166,18 @@ fun AppNavHost() {
                     ).show()
                 }
                 ProcessingScreen()
+            }
+
+            composable(
+                route = "arview/{id}",
+                arguments = listOf(navArgument("id") { type = NavType.StringType }),
+            ) { backStack ->
+                val id = backStack.arguments?.getString("id") ?: return@composable
+                ArViewScreen(
+                    manifest = m,
+                    stickerId = id,
+                    onBack = { nav.popBackStack() },
+                )
             }
         }
     }
