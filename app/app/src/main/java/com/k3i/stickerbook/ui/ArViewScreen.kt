@@ -1,8 +1,10 @@
 package com.k3i.stickerbook.ui
 
 import android.content.pm.PackageManager
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.camera.core.ImageAnalysis
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,6 +18,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -28,10 +31,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import com.k3i.stickerbook.ar.PaperTracker
+import com.k3i.stickerbook.ar.yPlaneToGrayMat
 import com.k3i.stickerbook.camera.CameraXPreview
 import com.k3i.stickerbook.camera.ImageCaptureController
 import com.k3i.stickerbook.data.Manifest
 import com.k3i.stickerbook.ui.components.ArStickerOverlay
+import org.opencv.android.OpenCVLoader
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -62,6 +68,38 @@ fun ArViewScreen(
     val density = LocalDensity.current
     val controller = remember { ImageCaptureController() }
 
+    val tracker = remember {
+        if (!OpenCVLoader.initLocal()) {
+            Log.e("ArViewScreen", "OpenCV init failed")
+        }
+        PaperTracker()
+    }
+    val homographyState = remember { mutableStateOf<DoubleArray?>(null) }
+
+    val analyzer = remember {
+        ImageAnalysis.Analyzer { imageProxy ->
+            try {
+                val mat = yPlaneToGrayMat(imageProxy)
+                try {
+                    if (!tracker.isReferenceSet) {
+                        tracker.setReference(mat)
+                    } else {
+                        val h = tracker.update(mat)
+                        if (h != null) homographyState.value = h
+                    }
+                } finally {
+                    mat.release()
+                }
+            } finally {
+                imageProxy.close()
+            }
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose { tracker.reset() }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -76,7 +114,7 @@ fun ArViewScreen(
     ) { pad ->
         Box(modifier = Modifier.fillMaxSize().padding(pad)) {
             if (hasPermission) {
-                CameraXPreview(controller = controller, modifier = Modifier.fillMaxSize())
+                CameraXPreview(controller = controller, analyzer = analyzer, modifier = Modifier.fillMaxSize())
             } else {
                 Text("카메라 권한이 필요합니다")
             }
