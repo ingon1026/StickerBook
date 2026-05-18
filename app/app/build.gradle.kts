@@ -58,6 +58,7 @@ dependencies {
     implementation(libs.coil.gif)
     implementation(libs.onnxruntime.android)
     implementation(libs.mediapipe.tasks.vision)
+    implementation("org.opencv:opencv:4.10.0")
 
     debugImplementation(platform(libs.androidx.compose.bom))
     debugImplementation(libs.androidx.ui.tooling)
