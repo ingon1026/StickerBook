@@ -27,6 +27,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
@@ -77,6 +78,7 @@ fun ArViewScreen(
     val homographyState = remember { mutableStateOf<DoubleArray?>(null) }
 
     val analyzer = remember {
+        val alpha = 0.3  // EMA factor: higher = faster response, lower = smoother
         ImageAnalysis.Analyzer { imageProxy ->
             try {
                 val mat = yPlaneToGrayMat(imageProxy)
@@ -84,8 +86,17 @@ fun ArViewScreen(
                     if (!tracker.isReferenceSet) {
                         tracker.setReference(mat)
                     } else {
-                        val h = tracker.update(mat)
-                        if (h != null) homographyState.value = h
+                        val hNew = tracker.update(mat)
+                        if (hNew != null) {
+                            val hPrev = homographyState.value
+                            val hSmoothed = if (hPrev == null) {
+                                hNew
+                            } else {
+                                DoubleArray(9) { i -> alpha * hNew[i] + (1 - alpha) * hPrev[i] }
+                            }
+                            homographyState.value = hSmoothed
+                        }
+                        // if hNew == null (lost), keep previous homographyState (sticker stays)
                     }
                 } finally {
                     mat.release()
@@ -121,10 +132,12 @@ fun ArViewScreen(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .pointerInput(stickerId) {
-                        if (anchor == null) {
-                            anchor = Offset(size.width / 2f, size.height * 2f / 3f)
+                    .onSizeChanged { size ->
+                        if (anchor == null && size.width > 0 && size.height > 0) {
+                            anchor = Offset(size.width.toFloat() / 2f, size.height.toFloat() * 2f / 3f)
                         }
+                    }
+                    .pointerInput(stickerId) {
                         detectTapGestures { offset ->
                             anchor = offset
                         }
