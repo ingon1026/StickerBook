@@ -30,12 +30,31 @@ class PaperTracker(
     var isReferenceSet: Boolean = false
         private set
 
+    @Volatile private var refCentroidNormalized: Pair<Float, Float>? = null
+
     fun setReference(frameGray: Mat) {
         refKeypoints.release()
         refDescriptors.release()
         orb.detectAndCompute(frameGray, Mat(), refKeypoints, refDescriptors)
-        isReferenceSet = refKeypoints.toArray().isNotEmpty()
-        Log.i(TAG, "reference set: ${refKeypoints.toArray().size} keypoints")
+        val kps = refKeypoints.toArray()
+        isReferenceSet = kps.isNotEmpty()
+        Log.i(TAG, "reference set: ${kps.size} keypoints")
+
+        // Compute centroid (normalized 0~1)
+        refCentroidNormalized = if (kps.isEmpty()) {
+            null
+        } else {
+            val sumX = kps.sumOf { it.pt.x }
+            val sumY = kps.sumOf { it.pt.y }
+            val n = kps.size
+            val cx = sumX / n
+            val cy = sumY / n
+            // frameGray.cols() = frame width, frameGray.rows() = frame height
+            val nx = (cx / frameGray.cols()).toFloat()
+            val ny = (cy / frameGray.rows()).toFloat()
+            Log.i(TAG, "centroid (normalized): ($nx, $ny)")
+            Pair(nx, ny)
+        }
     }
 
     /**
@@ -80,10 +99,16 @@ class PaperTracker(
         return out
     }
 
+    /**
+     * @return Normalized centroid (0..1) of reference keypoints; null if no reference.
+     */
+    fun referenceCentroidNormalized(): Pair<Float, Float>? = refCentroidNormalized
+
     fun reset() {
         refKeypoints.release()
         refDescriptors.release()
         isReferenceSet = false
+        refCentroidNormalized = null
     }
 
     companion object {

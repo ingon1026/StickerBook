@@ -66,6 +66,8 @@ fun ArViewScreen(
     }
 
     var anchor by remember { mutableStateOf<Offset?>(null) }
+    var screenSize by remember { mutableStateOf<androidx.compose.ui.unit.IntSize?>(null) }
+    val centroidState = remember { mutableStateOf<Pair<Float, Float>?>(null) }
     val density = LocalDensity.current
     val controller = remember { ImageCaptureController() }
 
@@ -85,6 +87,7 @@ fun ArViewScreen(
                 try {
                     if (!tracker.isReferenceSet) {
                         tracker.setReference(mat)
+                        centroidState.value = tracker.referenceCentroidNormalized()
                     } else {
                         val hNew = tracker.update(mat)
                         if (hNew != null) {
@@ -104,6 +107,14 @@ fun ArViewScreen(
             } finally {
                 imageProxy.close()
             }
+        }
+    }
+
+    LaunchedEffect(centroidState.value, screenSize) {
+        val c = centroidState.value
+        val s = screenSize
+        if (c != null && s != null && s.width > 0 && s.height > 0) {
+            anchor = Offset(c.first * s.width, c.second * s.height)
         }
     }
 
@@ -133,7 +144,9 @@ fun ArViewScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .onSizeChanged { size ->
+                        screenSize = size
                         if (anchor == null && size.width > 0 && size.height > 0) {
+                            // Fallback: center sticker immediately. centroid will override when available.
                             anchor = Offset(size.width.toFloat() / 2f, size.height.toFloat() * 2f / 3f)
                         }
                     }
