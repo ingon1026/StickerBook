@@ -37,7 +37,12 @@ class ArapRigger private constructor(
         val framesDir = File(sDir, "frames")
         framesDir.mkdirs()
 
-        val character = if (top != null) applyMask(image, top.mask, top.bbox) else image
+        val character = if (top != null) {
+            val refinedMask = MaskRefiner.refine(image, top.bbox, top.mask)
+            applyMask(image, refinedMask, top.bbox)
+        } else {
+            image
+        }
         val rel = "stickers/$stickerId"
 
         val shiftedSkeleton = if (skeleton != null && top != null) {
