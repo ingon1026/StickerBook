@@ -64,7 +64,8 @@ fun AppNavHost() {
                 StickerListScreen(
                     manifest = m,
                     onStickerClick = { entry -> nav.navigate("detail/${entry.id}") },
-                    onCaptureClick = { nav.navigate("capture") },
+                    onCaptureClick = { nav.navigate(NavMode.NORMAL.routeOf("capture")) },
+                    onArCaptureClick = { nav.navigate(NavMode.AR_AUTO.routeOf("capture")) },
                 )
             }
 
@@ -98,36 +99,47 @@ fun AppNavHost() {
                         ).show()
                     },
                     onAR = { nav.navigate("arview/${entry.id}") },
+                    onDelete = {
+                        AssetRepository(ctx).deleteSticker(entry.id)
+                        manifestVersion++
+                        nav.popBackStack()
+                    },
                 )
             }
 
-            composable("capture") {
+            modeRoute("capture") { mode ->
                 CaptureScreen(
                     onBack = { nav.popBackStack() },
-                    onCaptured = { nav.navigate("review") },
+                    onCaptured = {
+                        val next = when (mode) {
+                            NavMode.NORMAL -> mode.routeOf("review")
+                            NavMode.AR_AUTO -> mode.routeOf("motion")
+                        }
+                        nav.navigate(next)
+                    },
                 )
             }
 
-            composable("review") {
+            modeRoute("review") { mode ->
                 CaptureReviewScreen(
                     onBack = { nav.popBackStack() },
                     onRetake = { nav.popBackStack() },
-                    onNext = { nav.navigate("motion") },
+                    onNext = { nav.navigate(mode.routeOf("motion")) },
                 )
             }
 
-            composable("motion") {
+            modeRoute("motion") { mode ->
                 MotionPickerScreen(
                     onBack = { nav.popBackStack() },
                     onConfirm = {
                         if (session.image != null && session.motion != null) {
-                            nav.navigate("processing")
+                            nav.navigate(mode.routeOf("processing"))
                         }
                     },
                 )
             }
 
-            composable("processing") {
+            modeRoute("processing") { mode ->
                 LaunchedEffect(Unit) {
                     val image = session.image
                     val motion = session.motion
@@ -157,9 +169,14 @@ fun AppNavHost() {
                     )
                     AssetRepository(ctx).saveSticker(entry)
                     session.reset()
-                    manifestVersion++  // re-trigger produceState to reload manifest
-                    nav.navigate("list") {
-                        popUpTo("list") { inclusive = true }
+                    manifestVersion++
+                    when (mode) {
+                        NavMode.NORMAL -> nav.navigate("list") {
+                            popUpTo("list") { inclusive = true }
+                        }
+                        NavMode.AR_AUTO -> nav.navigate("arview/${entry.id}") {
+                            popUpTo("list")
+                        }
                     }
                     android.widget.Toast.makeText(
                         ctx, "새 스티커 만들어짐", android.widget.Toast.LENGTH_SHORT,

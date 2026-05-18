@@ -1,5 +1,7 @@
 package com.k3i.stickerbook.ui
 
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -7,6 +9,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -27,12 +30,18 @@ fun StickerListScreen(
     manifest: Manifest,
     onStickerClick: (StickerEntry) -> Unit,
     onCaptureClick: () -> Unit,
+    onArCaptureClick: () -> Unit,
 ) {
     Scaffold(
         topBar = { TopAppBar(title = { Text("스티커북") }) },
         floatingActionButton = {
-            FloatingActionButton(onClick = onCaptureClick) {
-                Icon(Icons.Default.Add, contentDescription = "새 스티커")
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                FloatingActionButton(onClick = onArCaptureClick) {
+                    Icon(Icons.Default.Star, contentDescription = "AR 자동 흐름")
+                }
+                FloatingActionButton(onClick = onCaptureClick) {
+                    Icon(Icons.Default.Add, contentDescription = "새 스티커")
+                }
             }
         },
     ) { inner ->
