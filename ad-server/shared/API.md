@@ -52,13 +52,21 @@
 
 ### 동작 가능 motion (M1 ~ M4)
 
-클라이언트는 이 목록을 하드코딩. M5(옵션) 에서 `GET /motions` API 로 동적 조회 전환 예정.
+클라이언트는 이 목록을 하드코딩 (MainActivity 의 `motions` 리스트와 server `motion_registry.py` 의 `_REGISTRY` 가 일치해야 함). 동적 조회 (`GET /motions`) 는 후속 작업.
 
-| id | label | AD yaml |
+| id | label | 분류 |
 |---|---|---|
-| `dab` | Dab | `config/motion/dab.yaml` |
-| `wave_hello` | Wave Hello | `config/motion/wave_hello.yaml` |
-| `jumping` | Jumping | `config/motion/jumping.yaml` |
+| `dab` | Dab | fair1 표준 |
+| `wave_hello` | Wave Hello | fair1 표준 |
+| `jumping` | Jumping | fair1 표준 |
+| `jumping_jacks` | Jumping Jacks | fair1 표준 |
+| `zombie` | Zombie | fair1 표준 |
+| `dance_1` | Dance 1 | Rokoko 변환 |
+| `dance_2` | Dance 2 | Rokoko 변환 |
+| `dance_3` | Dance 3 | Rokoko 변환 |
+| `my_dance` | My Dance | Rokoko 변환 |
+| `my_dance_2` | My Dance 2 | Rokoko 변환 |
+| `my_dance_3` | My Dance 3 | Rokoko 변환 |
 
 ---
 

@@ -14,12 +14,35 @@
         android:scaleType="fitCenter"
         android:contentDescription="picked image" />
 
-    <Button
-        android:id="@+id/btnPick"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="@string/pick_image"
-        android:layout_marginTop="8dp" />
+        android:orientation="horizontal"
+        android:layout_marginTop="8dp">
+
+        <Button
+            android:id="@+id/btnPick"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="2"
+            android:text="@string/pick_image" />
+
+        <Button
+            android:id="@+id/btnRotateLeft"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="4dp"
+            android:text="@string/rotate_left" />
+
+        <Button
+            android:id="@+id/btnRotateRight"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="4dp"
+            android:text="@string/rotate_right" />
+    </LinearLayout>
 
     <TextView
         android:layout_width="wrap_content"

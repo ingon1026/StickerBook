@@ -1,5 +1,6 @@
 package com.k3i.adclient
 
+import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Bundle
 import android.widget.ArrayAdapter
@@ -23,18 +24,27 @@ class MainActivity : AppCompatActivity() {
     private lateinit var gifResult: ImageView
     private lateinit var spinnerMotion: Spinner
     private lateinit var statusText: TextView
-    private var pickedUri: Uri? = null
 
-    // M1~M4: motion 목록 하드코딩. M5(옵션) 에서 GET /motions 호출로 전환.
-    // shared/API.md 의 motion id 와 일치해야 함.
-    private val motions = listOf("dab", "wave_hello", "jumping")
+    private var pickedUri: Uri? = null
+    private var originalBitmap: Bitmap? = null
+    private var rotationDeg: Int = 0   // 0 / 90 / 180 / 270
+
+    // shared/API.md 의 motion 목록과 일치해야 함.
+    // server motion_registry.py 의 _REGISTRY 와 동기화.
+    private val motions = listOf(
+        "dab", "wave_hello", "jumping", "jumping_jacks", "zombie",
+        "dance_1", "dance_2", "dance_3",
+        "my_dance", "my_dance_2", "my_dance_3",
+    )
 
     private val pickImage = registerForActivityResult(
         ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         if (uri != null) {
             pickedUri = uri
-            imagePreview.setImageURI(uri)
+            rotationDeg = 0
+            originalBitmap = ImageRotator.decode(contentResolver, uri)
+            refreshPreview()
             statusText.text = getString(R.string.status_idle)
         }
     }
@@ -57,15 +67,29 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btnPick).setOnClickListener {
             pickImage.launch("image/*")
         }
-
+        findViewById<Button>(R.id.btnRotateLeft).setOnClickListener {
+            rotationDeg = ((rotationDeg - 90) % 360 + 360) % 360
+            refreshPreview()
+        }
+        findViewById<Button>(R.id.btnRotateRight).setOnClickListener {
+            rotationDeg = (rotationDeg + 90) % 360
+            refreshPreview()
+        }
         findViewById<Button>(R.id.btnCombine).setOnClickListener {
             onCombine()
         }
     }
 
+    /** 현재 originalBitmap + rotationDeg 로 미리보기 갱신. */
+    private fun refreshPreview() {
+        val src = originalBitmap ?: return
+        val rotated = ImageRotator.rotate(src, rotationDeg)
+        imagePreview.setImageBitmap(rotated)
+    }
+
     private fun onCombine() {
-        val uri = pickedUri
-        if (uri == null) {
+        val src = originalBitmap
+        if (src == null) {
             statusText.text = getString(R.string.pick_first)
             return
         }
@@ -74,16 +98,10 @@ class MainActivity : AppCompatActivity() {
         lifecycleScope.launch {
             statusText.text = getString(R.string.status_loading)
 
-            // 갤러리 Uri → EXIF 회전 적용된 JPEG bytes (백그라운드 스레드)
-            //   raw bytes 그대로 보내면 서버 cv2.imread 가 EXIF 무시 → 누운 그림 detection
-            //   ImageRotator 가 EXIF 적용해 정상 방향 JPEG 으로 변환 후 송신
+            // 화면에 보이는 그대로 → JPEG bytes (서버 cv2.imread 와 일관)
             val bytes = withContext(Dispatchers.IO) {
-                ImageRotator.readAndRotate(contentResolver, uri)
-            }
-
-            if (bytes.isEmpty()) {
-                statusText.text = "이미지 읽기 실패"
-                return@launch
+                val rotated = ImageRotator.rotate(src, rotationDeg)
+                ImageRotator.toJpegBytes(rotated)
             }
 
             when (val result = AdApi.process(bytes, "drawing.jpg", motion)) {
