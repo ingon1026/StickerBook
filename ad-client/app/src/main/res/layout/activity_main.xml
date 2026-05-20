@@ -28,20 +28,12 @@
             android:text="@string/pick_image" />
 
         <Button
-            android:id="@+id/btnRotateLeft"
+            android:id="@+id/btnRotate"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:layout_marginStart="4dp"
-            android:text="@string/rotate_left" />
-
-        <Button
-            android:id="@+id/btnRotateRight"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:layout_marginStart="4dp"
-            android:text="@string/rotate_right" />
+            android:layout_marginStart="8dp"
+            android:text="@string/rotate" />
     </LinearLayout>
 
     <TextView

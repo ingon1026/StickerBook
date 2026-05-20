@@ -67,11 +67,8 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btnPick).setOnClickListener {
             pickImage.launch("image/*")
         }
-        findViewById<Button>(R.id.btnRotateLeft).setOnClickListener {
-            rotationDeg = ((rotationDeg - 90) % 360 + 360) % 360
-            refreshPreview()
-        }
-        findViewById<Button>(R.id.btnRotateRight).setOnClickListener {
+        findViewById<Button>(R.id.btnRotate).setOnClickListener {
+            // 90° 시계방향 회전. 4번 누르면 원래 자리.
             rotationDeg = (rotationDeg + 90) % 360
             refreshPreview()
         }

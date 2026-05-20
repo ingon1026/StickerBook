@@ -20,16 +20,17 @@ from pathlib import Path
 import yaml
 
 from app import settings
-from app.motion_registry import get_motion_yaml, UnknownMotionError  # noqa: F401
+from app.motion_registry import (  # noqa: F401
+    get_motion_yaml,
+    get_retarget_yaml,
+    UnknownMotionError,
+)
 
 # AD 의 examples/ 폴더를 import path 에 추가.
 # examples/ 는 패키지가 아니어서 자동 import 안 됨.
 _AD_EXAMPLES = settings.AD_REPO_ROOT / "examples"
 if str(_AD_EXAMPLES) not in sys.path:
     sys.path.insert(0, str(_AD_EXAMPLES))
-
-# 기본 retarget config — 캐릭터 skeleton ↔ motion skeleton 매핑.
-_RETARGET_CFG = _AD_EXAMPLES / "config" / "retarget" / "fair1_ppf.yaml"
 
 
 class AdError(RuntimeError):
@@ -55,9 +56,7 @@ def run(image_path: Path, motion_id: str, work_dir: Path) -> Path:
         raise AdError(f"input is not a valid image: {image_path}")
 
     motion_yaml = get_motion_yaml(motion_id)  # UnknownMotionError 가능
-
-    if not _RETARGET_CFG.exists():
-        raise AdError(f"retarget config missing: {_RETARGET_CFG}")
+    retarget_yaml = get_retarget_yaml(motion_id)  # motion 별 짝 (또는 fair1_ppf)
 
     work_dir.mkdir(parents=True, exist_ok=True)
     char_anno_dir = work_dir / "annotations"
@@ -81,7 +80,7 @@ def run(image_path: Path, motion_id: str, work_dir: Path) -> Path:
             "ANIMATED_CHARACTERS": [{
                 "character_cfg": str((char_anno_dir / "char_cfg.yaml").resolve()),
                 "motion_cfg": str(motion_yaml.resolve()),
-                "retarget_cfg": str(_RETARGET_CFG.resolve()),
+                "retarget_cfg": str(retarget_yaml.resolve()),
             }],
         },
         "controller": {

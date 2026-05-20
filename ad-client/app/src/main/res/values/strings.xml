@@ -1,8 +1,7 @@
 <resources>
     <string name="app_name">AD Client</string>
     <string name="pick_image">이미지 선택</string>
-    <string name="rotate_left">↺ 좌</string>
-    <string name="rotate_right">↻ 우</string>
+    <string name="rotate">↻ 90°</string>
     <string name="combine">합치기</string>
     <string name="motion_label">Motion</string>
     <string name="status_idle">대기 중</string>
