@@ -3,6 +3,8 @@ package com.k3i.adclient
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Bundle
+import android.os.SystemClock
+import android.view.View
 import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.ImageView
@@ -24,6 +26,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var gifResult: ImageView
     private lateinit var spinnerMotion: Spinner
     private lateinit var statusText: TextView
+    private lateinit var btnRotate: Button
 
     private var pickedUri: Uri? = null
     private var originalBitmap: Bitmap? = null
@@ -45,6 +48,8 @@ class MainActivity : AppCompatActivity() {
             rotationDeg = 0
             originalBitmap = ImageRotator.decode(contentResolver, uri)
             refreshPreview()
+            // 이미지 선택 후에만 회전 버튼 노출 (선택 전엔 의미 X)
+            btnRotate.visibility = View.VISIBLE
             statusText.text = getString(R.string.status_idle)
         }
     }
@@ -57,6 +62,7 @@ class MainActivity : AppCompatActivity() {
         gifResult = findViewById(R.id.gifResult)
         spinnerMotion = findViewById(R.id.spinnerMotion)
         statusText = findViewById(R.id.statusText)
+        btnRotate = findViewById(R.id.btnRotate)
 
         spinnerMotion.adapter = ArrayAdapter(
             this,
@@ -67,7 +73,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btnPick).setOnClickListener {
             pickImage.launch("image/*")
         }
-        findViewById<Button>(R.id.btnRotate).setOnClickListener {
+        btnRotate.setOnClickListener {
             // 90° 시계방향 회전. 4번 누르면 원래 자리.
             rotationDeg = (rotationDeg + 90) % 360
             refreshPreview()
@@ -94,6 +100,7 @@ class MainActivity : AppCompatActivity() {
 
         lifecycleScope.launch {
             statusText.text = getString(R.string.status_loading)
+            val startMs = SystemClock.elapsedRealtime()
 
             // 화면에 보이는 그대로 → JPEG bytes (서버 cv2.imread 와 일관)
             val bytes = withContext(Dispatchers.IO) {
@@ -103,7 +110,9 @@ class MainActivity : AppCompatActivity() {
 
             when (val result = AdApi.process(bytes, "drawing.jpg", motion)) {
                 is AdApi.Result.Ok -> {
-                    statusText.text = "완료 (${result.gifBytes.size} B)"
+                    val elapsedSec = (SystemClock.elapsedRealtime() - startMs) / 1000.0
+                    val kb = result.gifBytes.size / 1024
+                    statusText.text = "완료 · %.1fs · %d KB".format(elapsedSec, kb)
                     Glide.with(this@MainActivity)
                         .asGif()
                         .load(result.gifBytes)
