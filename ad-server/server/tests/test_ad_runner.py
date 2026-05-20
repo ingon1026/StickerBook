@@ -32,17 +32,8 @@ def test_run_raises_file_not_found_for_missing_image(tmp_path: Path):
         pass
 
 
-def test_run_returns_gif_path(tmp_path: Path):
-    """stub 동작 검증 — 정상 입력엔 gif 경로 반환."""
-    if not SAMPLE_DRAWING.exists():
-        pytest.skip(f"sample drawing missing: {SAMPLE_DRAWING}")
-    gif = ad_run(SAMPLE_DRAWING, "dab", tmp_path / "work")
-    assert gif.exists()
-    assert gif.suffix == ".gif"
-    assert gif.stat().st_size > 0
-
-
 def test_run_raises_unknown_motion(tmp_path: Path):
+    """알 수 없는 motion id → UnknownMotionError. 입력 검증 단계라 slow X."""
     if not SAMPLE_DRAWING.exists():
         pytest.skip(f"sample drawing missing: {SAMPLE_DRAWING}")
     from app.motion_registry import UnknownMotionError
@@ -51,3 +42,17 @@ def test_run_raises_unknown_motion(tmp_path: Path):
         raise AssertionError("expected UnknownMotionError")
     except UnknownMotionError:
         pass
+
+
+@pytest.mark.slow
+def test_run_real_call_produces_gif(tmp_path: Path):
+    """torchserve + osmesa 가 떠 있어야 PASS. 1-2분 소요.
+
+    검증: 진짜 AD 가 도는지 + 결과 GIF 가 정상 크기인지.
+    """
+    if not SAMPLE_DRAWING.exists():
+        pytest.skip(f"sample drawing missing: {SAMPLE_DRAWING}")
+    gif = ad_run(SAMPLE_DRAWING, "dab", tmp_path / "work")
+    assert gif.exists(), f"gif missing: {gif}"
+    assert gif.suffix == ".gif"
+    assert gif.stat().st_size > 1000, f"gif too small: {gif.stat().st_size}B"

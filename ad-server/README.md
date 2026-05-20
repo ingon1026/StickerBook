@@ -16,7 +16,9 @@ ad-server/
 ## 현재 동작 상태 (2026-05-19)
 
 - ✅ 통신 파이프라인 완성 — 갤탭 → Wi-Fi → portproxy → uvicorn → 갤탭
-- ⚠️ AD 호출은 *stub* — 입력 검증 후 dummy.gif 반환. 진짜 GIF 는 `Sub-AD-Render-Fix` (WSL2 OpenGL render) 해결 후 자동 활성화
+- ✅ AD 진짜 호출 활성화 (Sub-AD-Render-Fix 완료) — MesaView (osmesa) 헤드리스 렌더링
+  - 의존성: system `libosmesa6` + `libosmesa6-dev` (한 번 sudo apt install)
+  - torchserve 가 떠 있어야 진짜 GIF 생성 — `./scripts/run_torchserve.sh`
 - 클라이언트 입장에선 응답 형식 동일 → 호출자 코드 변경 X
 
 ---
@@ -24,6 +26,25 @@ ad-server/
 ## PC 재부팅 후 재현 절차
 
 ### A. 한 번만 박는 설정 (이미 했으면 skip)
+
+#### 0) AD 렌더링 의존성 (Sub-AD-Render-Fix 결과)
+
+WSL 터미널:
+```bash
+sudo apt update
+sudo apt install -y libosmesa6 libosmesa6-dev
+```
+확인:
+```bash
+ldconfig -p | grep -i osmesa
+# libOSMesa.so.6 또는 .8 보이면 OK
+```
+
+conda env 검증:
+```bash
+conda activate animated_drawings
+PYOPENGL_PLATFORM=osmesa python -c "from OpenGL import osmesa; print('ok')"
+```
 
 #### 1) Windows 방화벽 — 포트 8000 인바운드 허용
 
@@ -81,6 +102,25 @@ netsh interface portproxy show v4tov4
 
 > 📚 이 명령이 하는 일: 외부 NIC `<PC-Wi-Fi-IP>:8000` 으로 들어온 패킷을 WSL 안 uvicorn 으로 forward. WSL2 의 자동 localhost forwarding 이 작동 안 하는 환경 대처.
 
+#### 3.5) torchserve 띄움 (AD 호출 의존성)
+
+WSL 터미널 (별도):
+```bash
+/home/ingon/AR_book/ad-server/server/scripts/run_torchserve.sh
+```
+Healthy 까지 1~30초 (모델 mar cache 영향).
+
+검증:
+```bash
+curl -s http://localhost:8080/ping
+# {"status": "Healthy"}
+
+curl -s http://localhost:8081/models | grep modelName
+# drawn_humanoid_detector + drawn_humanoid_pose_estimator
+```
+
+⚠ torchserve 가 떠 있지 않으면 `/process` 가 422 (`AD failed: image_to_annotations failed`). uvicorn 띄우기 전에 torchserve 부터.
+
 #### 4) FastAPI 서버 띄움
 
 WSL 터미널:
@@ -137,9 +177,7 @@ PC Wi-Fi IP 가 바뀌면 이 줄 갱신 후 Android Studio 에서 Run.
 2. **"이미지 선택"** → 갤러리 → 그림 (jpeg/png) 선택 → 상단 미리보기에 표시
 3. **Motion Spinner** → `dab` / `wave_hello` / `jumping` 중 하나
 4. **"합치기"** → "서버 처리 중…" → 잠시 후 "완료 (N bytes)"
-5. 하단 회색 칸에 GIF 자동 재생
-   - 현재 stub 단계 → 색 변하는 dummy GIF
-   - Sub-AD-Render-Fix 후 → 진짜 캐릭터 모션 GIF
+5. 하단 회색 칸에 GIF 자동 재생 — 선택한 그림 캐릭터가 motion 따라 움직임
 
 ---
 
@@ -161,7 +199,8 @@ PC Wi-Fi IP 가 바뀌면 이 줄 갱신 후 Android Studio 에서 Run.
 
 ## 알려진 한계
 
-- **AD 진짜 호출은 stub 상태**: `ad_runner.py` 가 dummy.gif 반환. 진짜 호출 코드는 ad-server 원본 git history (`/home/ingon/AR_book/ad-server/.git` 의 `cd9bb46`) 에 풀버전 보존. WSL2 OpenGL render blocker 해결 후 cherry-pick.
+- **torchserve + osmesa 모두 필요**: 어느 하나 빠지면 422. 셋업 절차 A.0 + B.3.5 참조.
+- **AD render 가 SW renderer (llvmpipe)**: 30 frame GIF 8초 ~ 수십 초 (CPU 코어 수에 비례). 더 빠른 GPU 패스는 별도 작업.
 - **WSL IP 가 재부팅 시 변경 가능**: portproxy 매번 갱신 필요. 영구 해결책은 `.wslconfig` 의 `networkingMode=mirrored` (별도 셋업).
 - **HTTP cleartext**: 회사 서버 이관 시 HTTPS + 인증서 필요. 지금은 LAN 데모 한정.
 - **동시 1 요청만**: uvicorn worker 1개. 다중 사용자 시 worker 늘리거나 비동기 job 패턴.

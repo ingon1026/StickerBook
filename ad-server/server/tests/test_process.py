@@ -47,14 +47,20 @@ def test_process_rejects_non_image_input():
     assert response.status_code == 422
 
 
+import pytest
+
+
+@pytest.mark.slow
 def test_process_returns_gif_for_valid_input():
-    """정상 입력 — 현재 stub 이라 dummy.gif 와 동일 바이트."""
-    fake = io.BytesIO(b"\xff\xd8\xff\xd9")
-    response = client.post(
-        "/process",
-        files={"image": ("x.jpg", fake, "image/jpeg")},
-        data={"motion": "dab"},
-    )
-    assert response.status_code == 200
+    """진짜 AD 호출 — torchserve + osmesa 필요. 1-2분."""
+    if not SAMPLE_DRAWING.exists():
+        pytest.skip(f"sample drawing missing: {SAMPLE_DRAWING}")
+    with SAMPLE_DRAWING.open("rb") as f:
+        response = client.post(
+            "/process",
+            files={"image": ("garlic.png", f, "image/png")},
+            data={"motion": "dab"},
+        )
+    assert response.status_code == 200, response.text
     assert response.headers["content-type"].startswith("image/gif")
-    assert len(response.content) > 0
+    assert len(response.content) > 1000
