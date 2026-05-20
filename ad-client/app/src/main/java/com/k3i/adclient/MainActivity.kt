@@ -12,6 +12,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.bumptech.glide.Glide
 import com.k3i.adclient.net.AdApi
+import com.k3i.adclient.util.ImageRotator
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -73,10 +74,11 @@ class MainActivity : AppCompatActivity() {
         lifecycleScope.launch {
             statusText.text = getString(R.string.status_loading)
 
-            // 갤러리 Uri → ByteArray (백그라운드 스레드에서)
+            // 갤러리 Uri → EXIF 회전 적용된 JPEG bytes (백그라운드 스레드)
+            //   raw bytes 그대로 보내면 서버 cv2.imread 가 EXIF 무시 → 누운 그림 detection
+            //   ImageRotator 가 EXIF 적용해 정상 방향 JPEG 으로 변환 후 송신
             val bytes = withContext(Dispatchers.IO) {
-                contentResolver.openInputStream(uri)?.use { it.readBytes() }
-                    ?: ByteArray(0)
+                ImageRotator.readAndRotate(contentResolver, uri)
             }
 
             if (bytes.isEmpty()) {

@@ -41,6 +41,9 @@ dependencies {
     implementation("com.google.android.material:material:1.12.0")
     implementation("androidx.activity:activity-ktx:1.9.2")
 
+    // EXIF orientation 읽기 (갤러리 사진 회전 보정)
+    implementation("androidx.exifinterface:exifinterface:1.3.7")
+
     // HTTP 클라이언트
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
