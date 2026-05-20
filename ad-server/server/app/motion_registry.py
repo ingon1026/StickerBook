@@ -33,9 +33,11 @@ _RETARGET_CFG_DIR = settings.AD_REPO_ROOT / "examples" / "config" / "retarget"
 # 동명 retarget 없는 motion 의 fallback. AD 공식 generic retarget.
 _RETARGET_FALLBACK = _RETARGET_CFG_DIR / "fair1_ppf.yaml"
 
-# 동명 retarget 이 *있는데* 다른 걸 쓰고 싶을 때 명시. 보통 비어있음.
+# 동명 retarget 없거나 *다른 retarget* 을 강제할 때 명시.
+# motion 의 BVH 가 어떤 skeleton 인지에 따라 매칭되는 retarget 선택.
 _RETARGET_OVERRIDE: dict[str, str] = {
-    # 예: "some_motion": "custom_retarget"
+    # jumping_jacks BVH 는 CMU1 skeleton (examples/bvh/cmu1/) → cmu1_pfp retarget
+    "jumping_jacks": "cmu1_pfp",
 }
 
 
