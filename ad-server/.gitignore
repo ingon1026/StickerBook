@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+
+# 작업 임시 폴더
+server/jobs/
+server/logs/
+
+# Android
+android-client/.gradle/
+android-client/build/
+android-client/app/build/
+android-client/.idea/
+android-client/local.properties
+
+# OS
+.DS_Store
+Thumbs.db
