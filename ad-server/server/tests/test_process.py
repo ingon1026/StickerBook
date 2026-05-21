@@ -47,7 +47,49 @@ def test_process_rejects_non_image_input():
     assert response.status_code == 422
 
 
+def test_process_cleans_job_dir_on_failure():
+    """실패(422)해도 job 폴더가 JOBS_DIR 에 안 쌓인다."""
+    from app import settings
+
+    before = (
+        set(settings.JOBS_DIR.iterdir()) if settings.JOBS_DIR.exists() else set()
+    )
+    response = client.post(
+        "/process",
+        files={"image": ("x.txt", io.BytesIO(b"hello"), "text/plain")},
+        data={"motion": "dab"},
+    )
+    assert response.status_code == 422
+    after = (
+        set(settings.JOBS_DIR.iterdir()) if settings.JOBS_DIR.exists() else set()
+    )
+    assert after == before, "실패한 요청의 job 폴더가 정리되지 않음"
+
+
 import pytest
+
+
+@pytest.mark.slow
+def test_process_cleans_job_dir_on_success():
+    """정상 처리 후에도 job 폴더가 안 쌓인다 (BackgroundTask 청소)."""
+    from app import settings
+
+    if not SAMPLE_DRAWING.exists():
+        pytest.skip(f"sample drawing missing: {SAMPLE_DRAWING}")
+    before = (
+        set(settings.JOBS_DIR.iterdir()) if settings.JOBS_DIR.exists() else set()
+    )
+    with SAMPLE_DRAWING.open("rb") as f:
+        response = client.post(
+            "/process",
+            files={"image": ("garlic.png", f, "image/png")},
+            data={"motion": "dab"},
+        )
+    assert response.status_code == 200, response.text
+    after = (
+        set(settings.JOBS_DIR.iterdir()) if settings.JOBS_DIR.exists() else set()
+    )
+    assert after == before, "성공한 요청의 job 폴더가 정리되지 않음"
 
 
 @pytest.mark.slow
