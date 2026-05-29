@@ -55,6 +55,15 @@
         android:text="@string/combine"
         android:layout_marginTop="8dp" />
 
+    <ProgressBar
+        android:id="@+id/progressBar"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:max="100"
+        android:progress="0" />
+
     <TextView
         android:id="@+id/statusText"
         android:layout_width="match_parent"

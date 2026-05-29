@@ -4,10 +4,13 @@ import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Bundle
 import android.os.SystemClock
+import android.provider.OpenableColumns
+import android.util.Log
 import android.view.View
 import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.ImageView
+import android.widget.ProgressBar
 import android.widget.Spinner
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
@@ -17,6 +20,8 @@ import com.bumptech.glide.Glide
 import com.k3i.adclient.net.AdApi
 import com.k3i.adclient.util.ImageRotator
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -27,17 +32,30 @@ class MainActivity : AppCompatActivity() {
     private lateinit var spinnerMotion: Spinner
     private lateinit var statusText: TextView
     private lateinit var btnRotate: Button
+    private lateinit var progressBar: ProgressBar
+
+    companion object {
+        // 평균 30s 기준 estimated progress. 서버가 진짜 % 안 줘서 추정치.
+        // 실제 평균이 다르면 이 값만 조정.
+        private const val ESTIMATED_SEC = 30L
+        private const val TAG = "AdClient"
+    }
 
     private var pickedUri: Uri? = null
+    private var pickedFilename: String = "unknown"
     private var originalBitmap: Bitmap? = null
     private var rotationDeg: Int = 0   // 0 / 90 / 180 / 270
 
-    // shared/API.md 의 motion 목록과 일치해야 함.
     // server motion_registry.py 의 _REGISTRY 와 동기화.
+    // Custom dance 3 + Mixamo 14 (prefix 없이) = 17.
+    // untitled 는 회사 서버 registry 에 미등록(400 unknown motion)이라 제외.
     private val motions = listOf(
-        "dab", "wave_hello", "jumping", "jumping_jacks", "zombie",
-        "dance_1", "dance_2", "dance_3",
-        "my_dance", "my_dance_2", "my_dance_3",
+        // Custom dance — User Rokoko (3)
+        "Custom_dance_1", "Custom_dance_2", "Custom_dance_3",
+        // Mixamo (14) — prefix 없는 깔끔한 id
+        "salsa", "gangnam", "tut_hiphop", "booty_hiphop",
+        "jumping_mixamo", "arms_hiphop", "jazz_2", "waving_mixamo",
+        "arms_hiphop_v2", "hiphop", "golf", "kick", "jazz", "jump_side",
     )
 
     private val pickImage = registerForActivityResult(
@@ -45,6 +63,7 @@ class MainActivity : AppCompatActivity() {
     ) { uri: Uri? ->
         if (uri != null) {
             pickedUri = uri
+            pickedFilename = queryDisplayName(uri) ?: uri.lastPathSegment ?: "unknown"
             rotationDeg = 0
             originalBitmap = ImageRotator.decode(contentResolver, uri)
             refreshPreview()
@@ -63,6 +82,7 @@ class MainActivity : AppCompatActivity() {
         spinnerMotion = findViewById(R.id.spinnerMotion)
         statusText = findViewById(R.id.statusText)
         btnRotate = findViewById(R.id.btnRotate)
+        progressBar = findViewById(R.id.progressBar)
 
         spinnerMotion.adapter = ArrayAdapter(
             this,
@@ -83,6 +103,17 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /** 갤러리 picker uri 에서 사람이 읽을 수 있는 파일명 추출. testbed logging 용. */
+    private fun queryDisplayName(uri: Uri): String? {
+        contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cur ->
+            if (cur.moveToFirst()) {
+                val idx = cur.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                if (idx >= 0) return cur.getString(idx)
+            }
+        }
+        return null
+    }
+
     /** 현재 originalBitmap + rotationDeg 로 미리보기 갱신. */
     private fun refreshPreview() {
         val src = originalBitmap ?: return
@@ -100,7 +131,23 @@ class MainActivity : AppCompatActivity() {
 
         lifecycleScope.launch {
             statusText.text = getString(R.string.status_loading)
+            progressBar.progress = 0
             val startMs = SystemClock.elapsedRealtime()
+            Log.d(TAG, "START · image=$pickedFilename motion=$motion")
+
+            // 1초 tick — 경과 시간 + ESTIMATED_SEC 기반 추정 % 를 UI/로그에 갱신.
+            // 서버가 진짜 progress 안 줘서 추정치. cancel 되면 자동 종료.
+            val tick = launch {
+                while (isActive) {
+                    val elapsedSec = (SystemClock.elapsedRealtime() - startMs) / 1000.0
+                    val percent = (elapsedSec * 100 / ESTIMATED_SEC).toInt().coerceAtMost(99)
+                    statusText.text =
+                        "처리 중 · %.1fs / ~%ds (~%d%%)".format(elapsedSec, ESTIMATED_SEC, percent)
+                    progressBar.progress = percent
+                    Log.d(TAG, "tick · elapsed=%.1fs percent=%d%%".format(elapsedSec, percent))
+                    delay(1000)
+                }
+            }
 
             // 화면에 보이는 그대로 → JPEG bytes (서버 cv2.imread 와 일관)
             val bytes = withContext(Dispatchers.IO) {
@@ -108,18 +155,41 @@ class MainActivity : AppCompatActivity() {
                 ImageRotator.toJpegBytes(rotated)
             }
 
-            when (val result = AdApi.process(bytes, "drawing.jpg", motion)) {
+            val result = AdApi.process(bytes, "drawing.jpg", motion)
+            tick.cancel()
+            val totalSec = (SystemClock.elapsedRealtime() - startMs) / 1000.0
+
+            when (result) {
                 is AdApi.Result.Ok -> {
-                    val elapsedSec = (SystemClock.elapsedRealtime() - startMs) / 1000.0
                     val kb = result.gifBytes.size / 1024
-                    statusText.text = "완료 · %.1fs · %d KB".format(elapsedSec, kb)
+                    progressBar.progress = 100
+                    statusText.text = "완료 · %.1fs · %d KB".format(totalSec, kb)
+                    Log.d(
+                        TAG,
+                        "DONE · image=%s motion=%s time=%.1fs size=%dKB code=200".format(
+                            pickedFilename, motion, totalSec, kb,
+                        ),
+                    )
                     Glide.with(this@MainActivity)
                         .asGif()
                         .load(result.gifBytes)
                         .into(gifResult)
                 }
                 is AdApi.Result.Err -> {
-                    statusText.text = "에러 ${result.code}: ${result.message}"
+                    progressBar.progress = 0
+                    statusText.text = when (result.code) {
+                        401 -> "인증 실패 (401) — API 키가 잘못됐어요. local.properties 확인."
+                        422 -> "그림에서 캐릭터를 못 찾았어요 — 사람 형체가 더 명확한 그림으로 시도."
+                        500, 503 -> "서버 에러 (${result.code}) — 잠시 후 다시."
+                        -1 -> "네트워크 오류 — 사내 wifi 연결 확인."
+                        else -> "에러 ${result.code}: ${result.message}"
+                    }
+                    Log.e(
+                        TAG,
+                        "ERR · image=%s motion=%s time=%.1fs code=%d msg=%s".format(
+                            pickedFilename, motion, totalSec, result.code, result.message,
+                        ),
+                    )
                 }
             }
         }
