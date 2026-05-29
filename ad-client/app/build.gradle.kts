@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -13,6 +15,18 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "0.1.0"
+
+        // local.properties 의 AD_SERVER_API_KEY 를 BuildConfig 로 노출.
+        // 키 없으면 빈 문자열 → 서버에서 401 (UI 에서 친근 메시지로 처리).
+        val props = Properties().apply {
+            val f = rootProject.file("local.properties")
+            if (f.exists()) f.inputStream().use { load(it) }
+        }
+        buildConfigField(
+            "String",
+            "AD_SERVER_API_KEY",
+            "\"${props.getProperty("AD_SERVER_API_KEY") ?: ""}\"",
+        )
     }
 
     buildTypes {
@@ -32,6 +46,7 @@ android {
 
     buildFeatures {
         viewBinding = false
+        buildConfig = true
     }
 }
 

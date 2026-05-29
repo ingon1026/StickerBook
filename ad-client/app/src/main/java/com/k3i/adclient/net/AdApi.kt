@@ -69,6 +69,7 @@ object AdApi {
 
         val req = Request.Builder()
             .url("${Config.BASE_URL}/process")
+            .addHeader("X-API-Key", Config.API_KEY)
             .post(body)
             .build()
 
