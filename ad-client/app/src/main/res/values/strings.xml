@@ -7,4 +7,5 @@
     <string name="status_idle">대기 중</string>
     <string name="status_loading">서버 처리 중…</string>
     <string name="pick_first">이미지 먼저 선택해주세요</string>
+    <string name="save_gif">⬇ GIF 저장</string>
 </resources>

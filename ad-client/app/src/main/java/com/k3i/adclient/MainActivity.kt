@@ -1,9 +1,13 @@
 package com.k3i.adclient
 
+import android.content.ContentValues
 import android.graphics.Bitmap
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.os.Environment
 import android.os.SystemClock
+import android.provider.MediaStore
 import android.provider.OpenableColumns
 import android.util.Log
 import android.view.View
@@ -32,6 +36,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var spinnerMotion: Spinner
     private lateinit var statusText: TextView
     private lateinit var btnRotate: Button
+    private lateinit var btnSave: Button
     private lateinit var progressBar: ProgressBar
 
     companion object {
@@ -43,6 +48,7 @@ class MainActivity : AppCompatActivity() {
 
     private var pickedUri: Uri? = null
     private var pickedFilename: String = "unknown"
+    private var lastGifBytes: ByteArray? = null
     private var originalBitmap: Bitmap? = null
     private var rotationDeg: Int = 0   // 0 / 90 / 180 / 270
 
@@ -82,6 +88,7 @@ class MainActivity : AppCompatActivity() {
         spinnerMotion = findViewById(R.id.spinnerMotion)
         statusText = findViewById(R.id.statusText)
         btnRotate = findViewById(R.id.btnRotate)
+        btnSave = findViewById(R.id.btnSave)
         progressBar = findViewById(R.id.progressBar)
 
         spinnerMotion.adapter = ArrayAdapter(
@@ -101,6 +108,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btnCombine).setOnClickListener {
             onCombine()
         }
+        btnSave.setOnClickListener { saveGif() }
     }
 
     /** 갤러리 picker uri 에서 사람이 읽을 수 있는 파일명 추출. testbed logging 용. */
@@ -121,6 +129,33 @@ class MainActivity : AppCompatActivity() {
         imagePreview.setImageBitmap(rotated)
     }
 
+    /** 마지막 합성 GIF 를 갤러리(Pictures/AdClient)에 저장. MediaStore (Android 10+). */
+    private fun saveGif() {
+        val bytes = lastGifBytes ?: return
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            statusText.text = "저장은 Android 10 이상에서만 지원돼요"
+            return
+        }
+        val name = "adclient_${System.currentTimeMillis()}.gif"
+        val values = ContentValues().apply {
+            put(MediaStore.Images.Media.DISPLAY_NAME, name)
+            put(MediaStore.Images.Media.MIME_TYPE, "image/gif")
+            put(MediaStore.Images.Media.RELATIVE_PATH, "${Environment.DIRECTORY_PICTURES}/AdClient")
+        }
+        val uri = contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+        if (uri == null) {
+            statusText.text = "저장 실패 — 다시 시도해주세요"
+            return
+        }
+        try {
+            contentResolver.openOutputStream(uri)?.use { it.write(bytes) }
+                ?: run { statusText.text = "저장 실패 — 출력 스트림 없음"; return }
+            statusText.text = "저장됨 · Pictures/AdClient/$name"
+        } catch (e: Exception) {
+            statusText.text = "저장 실패 — ${e.message}"
+        }
+    }
+
     private fun onCombine() {
         val src = originalBitmap
         if (src == null) {
@@ -132,6 +167,8 @@ class MainActivity : AppCompatActivity() {
         lifecycleScope.launch {
             statusText.text = getString(R.string.status_loading)
             progressBar.progress = 0
+            btnSave.visibility = View.GONE
+            lastGifBytes = null
             val startMs = SystemClock.elapsedRealtime()
             Log.d(TAG, "START · image=$pickedFilename motion=$motion")
 
@@ -164,6 +201,8 @@ class MainActivity : AppCompatActivity() {
                     val kb = result.gifBytes.size / 1024
                     progressBar.progress = 100
                     statusText.text = "완료 · %.1fs · %d KB".format(totalSec, kb)
+                    lastGifBytes = result.gifBytes
+                    btnSave.visibility = View.VISIBLE
                     Log.d(
                         TAG,
                         "DONE · image=%s motion=%s time=%.1fs size=%dKB code=200".format(
