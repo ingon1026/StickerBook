@@ -57,7 +57,7 @@ class MainActivity : AppCompatActivity() {
     // untitled 는 회사 서버 registry 에 미등록(400 unknown motion)이라 제외.
     private val motions = listOf(
         // Custom dance — User Rokoko (3)
-        "Custom_dance_1", "Custom_dance_2", "Custom_dance_3",
+        "custom_dance_1", "custom_dance_2", "custom_dance_3",
         // Mixamo (14) — prefix 없는 깔끔한 id
         "salsa", "gangnam", "tut_hiphop", "booty_hiphop",
         "jumping_mixamo", "arms_hiphop", "jazz_2", "waving_mixamo",
