@@ -1,0 +1,52 @@
+# Models (download via README instructions)
+models/
+
+# Generated outputs
+output/
+
+# Test images
+samples/
+
+# Claude Code config (personal)
+claude.md
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Experiment outputs (large GIFs)
+stickerbook/experiments/results/
+stickerbook/experiments/results_whole/
+
+# TorchServe / runtime logs
+stickerbook/logs/
+
+# User-recorded motion BVH files (personal data, not source)
+stickerbook/assets/motions/library/*.bvh
+
+# Auto-saved AR sticker captures (per-SPACE GIFs + cfg)
+stickerbook/assets/captures/
+
+# Test / experiment media (large)
+stickerbook/*.mp4
+stickerbook/*.gif
+
+# Android pack CLI output
+stickerbook/stickerbook_assets/
+stickerbook/stickerbook_assets.zip
+
+# Android build & models in assets
+android/app/src/main/assets/*.tflite
+android/.gradle/
+android/app/build/
+android/build/
+*.apk
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
